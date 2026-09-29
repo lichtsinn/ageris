@@ -48,6 +48,34 @@ public class ConfigurationMapperTest {
             "  }\n" +
             "}";
 
+    private static final String NULL_VALUE_CONFIGS_JSON = "{\n" +
+            "  \"configs\" : {\n" +
+            "    \"com.medallia.merci.core.configs.NumberConfig\" : {\n" +
+            "      \"value\" : null\n" +
+            "    }\n" +
+            "  }\n" +
+            "}";
+
+    private static final String MISSING_VALUE_CONFIGS_JSON = "{\n" +
+            "  \"configs\" : {\n" +
+            "    \"com.medallia.merci.core.configs.NumberConfig\" : {\n" +
+            "      \"comment\" : \"no value field at all\"\n" +
+            "    }\n" +
+            "  }\n" +
+            "}";
+
+    private static final String NULL_CONTEXTS_CONFIGS_JSON = "{\n" +
+            "  \"configs\" : {\n" +
+            "    \"com.medallia.merci.core.configs.NumberConfig\" : {\n" +
+            "      \"value\" : { \"number\" : 1 },\n" +
+            "      \"modifiers\" : {\n" +
+            "        \"type\" : \"environment\",\n" +
+            "        \"contexts\" : null\n" +
+            "      }\n" +
+            "    }\n" +
+            "  }\n" +
+            "}";
+
     private static final  String ABSTRACT_CLASS_CONFIGS_JSON = "{\n" +
             "  \"configs\" : {\n" +
             "    \"com.medallia.merci.core.configs.AbstractClassConfig\" : {\n" +
@@ -156,6 +184,53 @@ public class ConfigurationMapperTest {
         Configuration<NumberConfig> configuration = configurations.get(NUMBER_CONFIG_NAME);
         Assert.assertEquals(1, configuration.getValue(none).getNumber());
         Assert.assertEquals(2, configuration.getValue(qa).getNumber());
+    }
+
+    /**
+     * Tests that a configuration whose value is explicitly null is rejected rather than stored, because a
+     * context without a default value fails every evaluation once it reaches the store.
+     */
+    @Test(expected = IOException.class)
+    public void testReadValueThrowsIOExceptionForNullValue() throws IOException {
+        ConfigurationMapper<Object> configurationMapper = new ConfigurationMapper<>("configs", false, jsonMapper,
+                configMetrics, new DefaultClassFinder());
+        configurationMapper.readValue(NULL_VALUE_CONFIGS_JSON);
+    }
+
+    /**
+     * Tests that a configuration whose value is explicitly null is skipped when skipping is configured.
+     */
+    @Test
+    public void testReadValueSkipsConfigurationForNullValue() throws IOException {
+        ConfigurationMapper<Object> configurationMapper = new ConfigurationMapper<>("configs", true, jsonMapper,
+                configMetrics, new DefaultClassFinder());
+
+        Map<String, Configuration<Object>> configurations = configurationMapper.readValue(NULL_VALUE_CONFIGS_JSON);
+
+        Assert.assertEquals(Collections.emptyMap(), configurations);
+        Assert.assertEquals(1, configMetrics.getConfigNonInstantiableSkips());
+    }
+
+    /**
+     * Tests that a configuration with no value field at all is rejected. Jackson already enforces this through
+     * required = true on the creator property; pinned here so the two ways of omitting a value stay covered
+     * together, and so a later relaxation of the annotation does not go unnoticed.
+     */
+    @Test(expected = IOException.class)
+    public void testReadValueThrowsIOExceptionForMissingValue() throws IOException {
+        ConfigurationMapper<Object> configurationMapper = new ConfigurationMapper<>("configs", false, jsonMapper,
+                configMetrics, new DefaultClassFinder());
+        configurationMapper.readValue(MISSING_VALUE_CONFIGS_JSON);
+    }
+
+    /**
+     * Tests that modifiers with explicitly null contexts are rejected.
+     */
+    @Test(expected = IOException.class)
+    public void testReadValueThrowsIOExceptionForNullContexts() throws IOException {
+        ConfigurationMapper<Object> configurationMapper = new ConfigurationMapper<>("configs", false, jsonMapper,
+                configMetrics, new DefaultClassFinder());
+        configurationMapper.readValue(NULL_CONTEXTS_CONFIGS_JSON);
     }
 
     @Test

@@ -61,12 +61,19 @@ public class Context<T> {
     /**
      * Creates context based on mandatory (default) value object and optional modifiers.
      *
-     * @param value mandatory default value object
+     * @param value mandatory default value object, must not be null
      * @param modifiers optional modifiers to override default, nullable
+     * @throws IllegalArgumentException if the value object is null
      */
     @JsonCreator
     public Context(@JsonProperty(value = "value", required = true) T value,
                    @JsonProperty(value = "modifiers") Modifiers<T> modifiers) {
+        if (value == null) {
+            /* required = true rejects an absent "value" field, but only asks whether the field was present:
+             * an explicit "value": null satisfies it and would otherwise deserialize cleanly into a context
+             * with no default value, reaching the configuration store and failing every evaluation. */
+            throw new IllegalArgumentException("Configuration context requires a non-null value");
+        }
         this.value = value;
         this.modifiers = modifiers;
     }

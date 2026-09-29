@@ -58,11 +58,19 @@ public class Modifiers<T> {
      * Creates new modifiers container for a given context type and a mapping of context values new contexts.
      *
      * @param type context type
-     * @param contexts map of context value to context object
+     * @param contexts map of context value to context object, must not be null
+     * @throws IllegalArgumentException if the context type or the contexts are null
      */
     @JsonCreator
     public Modifiers(@JsonProperty(value = "type", required = true) String type,
                      @JsonProperty(value = "contexts", required = true) Map<String, Context<T>> contexts) {
+        if (type == null) {
+            throw new IllegalArgumentException("Configuration modifiers require a non-null context type");
+        }
+        if (contexts == null) {
+            /* An explicit "contexts": null satisfies required = true, but would fail every evaluation. */
+            throw new IllegalArgumentException("Configuration modifiers of type " + type + " require non-null contexts");
+        }
         this.type = type;
         this.contexts = contexts;
     }
