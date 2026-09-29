@@ -1,0 +1,184 @@
+/*
+ * Copyright 2018 Medallia, Inc.
+ * Modifications copyright 2026 Mario Lichtsinn; this file differs from the version
+ * released by Medallia, Inc. See NOTICE.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ *     http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.lichtsinn.ageris.core;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
+import io.github.lichtsinn.ageris.core.metrics.ConfigurationLoaderMetrics;
+import io.github.lichtsinn.ageris.core.fetcher.ConfigurationFetcher;
+import io.github.lichtsinn.ageris.core.metrics.FeatureFlagMetrics;
+import org.junit.Assert;
+import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
+
+import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Unit tests for {@link ConfigurationLoader}.
+ */
+public class ConfigurationLoaderTest {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private final MessageDigest digest = createMessageDigest();
+
+    private final FeatureFlagManager featureFlagManager = new FeatureFlagManager();
+
+    private final ConfigurationLoaderMetrics configLoaderMetrics = new ConfigurationLoaderMetrics();
+    private final FeatureFlagMetrics featureFlagMetrics = new FeatureFlagMetrics();
+    private final ConfigurationMapper<Boolean> featureFlagMapper = new FeatureFlagMapper("feature-flags", true, objectMapper, featureFlagMetrics);
+
+    /**
+     * Tests that Configuration Fetcher throwing an IOException results in a configuration failure.
+     */
+    @Test
+    public void testConfigurationFetcherThrowingIOExceptionResultsInConfigurationFailure() {
+        ConfigurationFetcher configurationFetcher = (fileNames, application) -> { throw new IOException("problems"); };
+
+        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+        ScheduledExecutorService executorService = Mockito.mock(ScheduledExecutorService.class);
+
+        ConfigurationReader<Boolean> featureFlagReader = new ConfigurationReader<>("myapp-configurations", Arrays.asList("/featureflags.json"),
+                configurationFetcher, featureFlagMapper, featureFlagManager, digest, featureFlagMetrics, 0);
+
+        ConfigurationLoader configurationLoader = new ConfigurationLoader(configLoaderMetrics, Arrays.asList(featureFlagReader), executorService, Duration.ofSeconds(1));
+        configurationLoader.start();
+        Mockito.verify(executorService).scheduleWithFixedDelay(runnableCaptor.capture(), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
+        runnableCaptor.getValue().run();
+        Assert.assertEquals(1, configLoaderMetrics.getConfigurationFailures());
+        Assert.assertEquals(1, configLoaderMetrics.getConfigurationRequests());
+    }
+
+    /**
+     * Tests that Configuration Fetcher throwing a RuntimeException results in a configuration failure.
+     */
+    @Test
+    public void testConfigurationFetcherThrowingRuntimeExceptionResultsInConfigurationFailure()  {
+        ConfigurationFetcher configurationFetcher = (fileNames, application) -> { throw new RuntimeException("problems"); };
+
+        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+        ScheduledExecutorService executorService = Mockito.mock(ScheduledExecutorService.class);
+
+        ConfigurationReader<Boolean> featureFlagReader = new ConfigurationReader<>("myapp-configurations", Arrays.asList("/featureflags.json"),
+                configurationFetcher, featureFlagMapper, featureFlagManager, digest, featureFlagMetrics, 0);
+
+        ConfigurationLoader configurationLoader = new ConfigurationLoader(configLoaderMetrics, Arrays.asList(featureFlagReader), executorService, Duration.ofSeconds(1));
+        configurationLoader.start();
+        Mockito.verify(executorService).scheduleWithFixedDelay(runnableCaptor.capture(), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
+        runnableCaptor.getValue().run();
+        Assert.assertEquals(1, configLoaderMetrics.getConfigurationFailures());
+        Assert.assertEquals(1, configLoaderMetrics.getConfigurationRequests());
+    }
+
+    /**
+     * Tests that Configuration Loader Shutdown Shuts down ExecutorService.
+     */
+    @Test
+    public void testConfigurationLoaderShutdownShutsdownExecutorService() throws InterruptedException, NoSuchAlgorithmException {
+        ConfigurationFetcher configurationFetcher = (fileNames, application)
+                -> ImmutableMap.of("io/github/lichtsinn/ageris/core/configs/featureflags.json", "{ \"feature-flags\": { \"enable-all\": { \"value\": true } } }");
+
+        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+        ScheduledExecutorService executorService = Mockito.mock(ScheduledExecutorService.class);
+
+        ConfigurationReader<Boolean> featureFlagReader = new ConfigurationReader<>("myapp-configurations", Arrays.asList("/featureflags.json"),
+                configurationFetcher, featureFlagMapper, featureFlagManager, digest, featureFlagMetrics, 0);
+
+        ConfigurationLoader configLoader = new ConfigurationLoader(configLoaderMetrics, Arrays.asList(featureFlagReader), executorService,Duration.ofSeconds(1));
+        configLoader.start();
+        Mockito.verify(executorService, Mockito.times(1)).scheduleWithFixedDelay(runnableCaptor.capture(),
+                ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
+        runnableCaptor.getValue().run();
+        configLoader.shutdown();
+        Mockito.verify(executorService, Mockito.times(1)).shutdown();
+        Mockito.verify(executorService, Mockito.times(1)).awaitTermination(ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
+    }
+
+    /**
+     * Tests that Configuration Loader Shutdown Rethrows Exception When Executor Service Throws InterruptedException.
+     */
+    @Test
+    public void testConfigurationLoaderShutdownRethrowsExceptionWhenExecutorServiceThrowsInterruptedException() throws InterruptedException, NoSuchAlgorithmException {
+        ConfigurationFetcher configurationFetcher = (fileNames, application)
+                -> ImmutableMap.of("io/github/lichtsinn/ageris/core/configs/featureflags.json", "{ \"feature-flags\": { \"enable-one\": { \"value\": true } } }");
+
+        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+        ScheduledExecutorService executorService = Mockito.mock(ScheduledExecutorService.class);
+
+        ConfigurationMapper<Boolean> configurationMapper = new FeatureFlagMapper("feature-flags", true, objectMapper, featureFlagMetrics);
+        ConfigurationReader<Boolean> featureFlagUpdate = new ConfigurationReader<>("myapp-configurations", Arrays.asList("/featureflags.json"),
+                configurationFetcher, configurationMapper, featureFlagManager, digest, featureFlagMetrics, 0);
+
+        ConfigurationLoader configLoader = new ConfigurationLoader(configLoaderMetrics, Arrays.asList(featureFlagUpdate), executorService, Duration.ofSeconds(1));
+        configLoader.start();
+        Mockito.verify(executorService, Mockito.times(1)).scheduleWithFixedDelay(runnableCaptor.capture(),
+                ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
+        runnableCaptor.getValue().run();
+        Mockito.doThrow(InterruptedException.class).when(executorService).awaitTermination(ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
+        configLoader.shutdown();
+    }
+
+    /**
+     * Tests that a refresh interval below one second is scheduled at its real length, rather than being
+     * truncated to a zero delay that would re-fetch configurations in a tight loop.
+     */
+    @Test
+    public void testSubSecondRefreshIntervalIsScheduledInMilliseconds() {
+        ScheduledExecutorService executorService = Mockito.mock(ScheduledExecutorService.class);
+        ConfigurationReader<Boolean> featureFlagReader = new ConfigurationReader<>("myapp-configurations", Arrays.asList("/featureflags.json"),
+                (fileNames, application) -> ImmutableMap.of(), featureFlagMapper, featureFlagManager, digest, featureFlagMetrics, 0);
+
+        new ConfigurationLoader(configLoaderMetrics, Arrays.asList(featureFlagReader), executorService, Duration.ofMillis(500)).start();
+
+        Mockito.verify(executorService).scheduleWithFixedDelay(ArgumentMatchers.any(Runnable.class), ArgumentMatchers.eq(0L), ArgumentMatchers.eq(500L),
+                ArgumentMatchers.eq(TimeUnit.MILLISECONDS));
+    }
+
+    /**
+     * Tests that a refresh interval shorter than the scheduler's resolution is rejected instead of
+     * silently becoming a zero delay.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testRefreshIntervalBelowOneMillisecondIsRejected() {
+        new ConfigurationLoader(configLoaderMetrics, Arrays.<ConfigurationReader>asList(), Mockito.mock(ScheduledExecutorService.class), Duration.ofNanos(1));
+    }
+
+    /**
+     * Tests that a refresh interval of zero is rejected.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testZeroRefreshIntervalIsRejected() {
+        new ConfigurationLoader(configLoaderMetrics, Arrays.<ConfigurationReader>asList(), Mockito.mock(ScheduledExecutorService.class), Duration.ZERO);
+    }
+
+    private static MessageDigest createMessageDigest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException exception) {
+            throw new RuntimeException(exception);
+        }
+    }
+}

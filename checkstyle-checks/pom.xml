@@ -21,13 +21,13 @@ limitations under the License.
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.medallia.merci</groupId>
-        <artifactId>merci-parent</artifactId>
+        <groupId>io.github.lichtsinn</groupId>
+        <artifactId>ageris-parent</artifactId>
         <version>0.2.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>checkstyle-checks</artifactId>
-    <name>Merci Checkstyle Checks</name>
+    <name>Ageris Checkstyle Checks</name>
     <description>Custom Checkstyle rule requiring nullability annotations</description>
 
     <dependencies>

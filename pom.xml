@@ -20,24 +20,19 @@ limitations under the License.
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.medallia.merci</groupId>
-    <artifactId>merci-parent</artifactId>
+    <groupId>io.github.lichtsinn</groupId>
+    <artifactId>ageris-parent</artifactId>
     <version>0.2.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>Merci</name>
+    <name>Ageris</name>
     <description>Framework for Feature Flags and Runtime Configuration</description>
-    <url>https://github.com/medallia/merci</url>
-
-    <organization>
-        <name>com.github.medallia</name>
-        <url>https://github.com/medallia</url>
-    </organization>
+    <url>https://github.com/lichtsinn/ageris</url>
 
     <licenses>
         <license>
             <name>Apache License 2.0</name>
-            <url>https://github.com/medallia/merci/blob/master/LICENSE</url>
+            <url>https://github.com/lichtsinn/ageris/blob/master/LICENSE</url>
             <distribution>repo</distribution>
         </license>
     </licenses>
@@ -52,13 +47,13 @@ limitations under the License.
 
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/medallia/merci/issues</url>
+        <url>https://github.com/lichtsinn/ageris/issues</url>
     </issueManagement>
 
     <scm>
-        <url>https://github.com/medallia/merci</url>
-        <connection>scm:git:git://github.com/medallia/merci.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com:medallia/merci.git</developerConnection>
+        <url>https://github.com/lichtsinn/ageris</url>
+        <connection>scm:git:git://github.com/lichtsinn/ageris.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com:lichtsinn/ageris.git</developerConnection>
     </scm>
 
     <modules>
@@ -184,7 +179,7 @@ limitations under the License.
                                              than an obscure compiler error on an older JDK. CI builds on the
                                              current LTS; anything from this floor up produces the same artifacts. -->
                                         <version>[${maven.compiler.release},)</version>
-                                        <message>Merci compiles to Java ${maven.compiler.release} bytecode and needs a JDK of at least that version to build. CI uses Temurin 25.</message>
+                                        <message>Ageris compiles to Java ${maven.compiler.release} bytecode and needs a JDK of at least that version to build. CI uses Temurin 25.</message>
                                     </requireJavaVersion>
                                 </rules>
                             </configuration>

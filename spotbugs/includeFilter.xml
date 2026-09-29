@@ -16,7 +16,7 @@ limitations under the License.
 -->
 <FindBugsFilter>
     <Match>
-        <Package name="~com\.medallia\.merci\..*"/>
+        <Package name="~com\.medallia\.ageris\..*"/>
         <Bug category="BAD_PRACTICE,CORRECTNESS,I18N,MALICIOUS_CODE,MT_CORRECTNESS,NOISE,PERFORMANCE,SECURITY,STYLE"></Bug>
         <!--<Bug code="SS,NP"/>-->
     </Match>

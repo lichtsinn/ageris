@@ -21,13 +21,13 @@ limitations under the License.
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.medallia.merci</groupId>
-        <artifactId>merci-parent</artifactId>
+        <groupId>io.github.lichtsinn</groupId>
+        <artifactId>ageris-parent</artifactId>
         <version>0.2.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>merci-core</artifactId>
-    <name>Merci Core</name>
+    <artifactId>ageris-core</artifactId>
+    <name>Ageris Core</name>
     <description>Feature flag and runtime configuration store, loader and evaluation</description>
 
     <dependencies>

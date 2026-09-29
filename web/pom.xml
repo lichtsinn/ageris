@@ -21,13 +21,13 @@ limitations under the License.
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.medallia.merci</groupId>
-        <artifactId>merci-parent</artifactId>
+        <groupId>io.github.lichtsinn</groupId>
+        <artifactId>ageris-parent</artifactId>
         <version>0.2.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>merci-web</artifactId>
-    <name>Merci Web</name>
+    <artifactId>ageris-web</artifactId>
+    <name>Ageris Web</name>
     <description>Sample Jetty application serving feature flags and configs over HTTP</description>
 
     <properties>
@@ -45,8 +45,8 @@ limitations under the License.
 
     <dependencies>
         <dependency>
-            <groupId>com.medallia.merci</groupId>
-            <artifactId>merci-core</artifactId>
+            <groupId>io.github.lichtsinn</groupId>
+            <artifactId>ageris-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 

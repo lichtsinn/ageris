@@ -16,28 +16,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-Merci is a framework for feature flags and runtime configuration. It relies on an easy to learn, recursive JSON structure.
+Ageris is a framework for feature flags and runtime configuration. It relies on an easy to learn, recursive JSON structure.
+
+Ageris continues Merci, originally developed at Medallia, Inc. and released under the Apache License 2.0.
+It is not affiliated with or endorsed by Medallia. See [NOTICE](NOTICE).
 
 ## Quick Start
 
-This guide describes with examples how to use Merci.
+This guide describes with examples how to use Ageris.
 
-### Using Merci in your Java<sup>(TM)</sup> application
+### Using Ageris in your Java<sup>(TM)</sup> application
 
-Merci releases can be downloaded from the Maven central repository. Adding Merci to a Java<sup>(TM)</sup> application just requires adding Merci as a dependency to pom files.
+Ageris releases can be downloaded from the Maven central repository. Adding Ageris to a Java<sup>(TM)</sup> application just requires adding Ageris as a dependency to pom files.
 
 ```xml
 <dependency>
-    <groupId>com.medallia.merci</groupId>
-    <artifactId>merci-core</artifactId>
-    <version>0.1.2</version>
-    <type>pom</type>
+    <groupId>io.github.lichtsinn</groupId>
+    <artifactId>ageris-core</artifactId>
+    <version>0.2.0</version>
 </dependency>
 ```
 
+Ageris 0.2.0 requires Java 17 or later.
+
 ### Central Configuration Files
 
-The core idea behind Merci is to use a small set of central, easy to read files with a recursive JSON or YAML structure. These files are fetched by Merci's configuration loader through a scheduled, aynchronous task.
+The core idea behind Ageris is to use a small set of central, easy to read files with a recursive JSON or YAML structure. These files are fetched by Ageris's configuration loader through a scheduled, aynchronous task.
 
 The following example of a configuration file contains a feature flag called "enable-international-welcome". Its evaluation at runtime results in a true or false value, depending on the environment of the deployed application and the current user. The feature flag would only be true, which means active, if the current user is 'joe' and the environment of the deployed application instance is 'qa'.
 
@@ -75,7 +79,7 @@ Runtime configurations - or short configs - share the same recursive structure b
 ```JSON
 {
   "configs": {
-    "com.medallia.merci.DBConfig": {
+    "com.example.DBConfig": {
       "value": {
         "hosts": [ "invalid-host" ],
         "port": -1
@@ -102,9 +106,9 @@ Runtime configurations - or short configs - share the same recursive structure b
 }
 ```
 
-### Initializing Merci
+### Initializing Ageris
  
-Merci's configuration loader, which is responsible for scheduling retrieval and processing of configuration changes, relies on a registered configuration fetcher to retrieve the latest configuration content from a local or remote source. The library provides a generic interface, that applications implement for fetching their configuration files. For testing purposes and for applications, which only read configurations from the local file system, Merci's Filesystem Configuration Fetcher class should be sufficient.
+Ageris's configuration loader, which is responsible for scheduling retrieval and processing of configuration changes, relies on a registered configuration fetcher to retrieve the latest configuration content from a local or remote source. The library provides a generic interface, that applications implement for fetching their configuration files. For testing purposes and for applications, which only read configurations from the local file system, Ageris's Filesystem Configuration Fetcher class should be sufficient.
 
 ```Java
 /**
@@ -118,25 +122,25 @@ public class MyAppConfigurationFetcher implements ConfigurationFetcher {
 }
 ```
 
-Initializing Merci's components should follow the example below. Both configuration manager singletons, the feature flag manager and the config manager instances should be made available to the rest of the application code.
+Initializing Ageris's components should follow the example below. Both configuration manager singletons, the feature flag manager and the config manager instances should be made available to the rest of the application code.
 
 ```Java
 /* Initialize configuration fetcher. */
 ConfigurationFetcher fetcher = new MyAppConfigurationFetcher(...);
 
-/* Use Merci to initialize configuration managers and loader. */
-Merci merci = new Merci(fetcher);
+/* Use Ageris to initialize configuration managers and loader. */
+Ageris ageris = new Ageris(fetcher);
 
-FeatureFlagManager featureFlagManager = merci.addFeatureFlagManager("myapp").registerFile("/featureflags.json").build();
-ConfigManager configManager = merci.addConfigManager("myapp").registerFile("/configs.json").build();
+FeatureFlagManager featureFlagManager = ageris.addFeatureFlagManager("myapp").registerFile("/featureflags.json").build();
+ConfigManager configManager = ageris.addConfigManager("myapp").registerFile("/configs.json").build();
 
-ConfigurationLoader loader = merci.createLoader(Duration.ofSeconds(180));
+ConfigurationLoader loader = ageris.createLoader(Duration.ofSeconds(180));
 loader.start();
 ```
 
-### Toggling Features with Merci
+### Toggling Features with Ageris
 
-Merci's feature flag manager allows developers to selectively enable and disable parts of their code without redeploying or restarting application instances. In the following code example, the execution path is determined by applying the runtime configuration context to the external definition of the "enable-international-welcome" feature flag.
+Ageris's feature flag manager allows developers to selectively enable and disable parts of their code without redeploying or restarting application instances. In the following code example, the execution path is determined by applying the runtime configuration context to the external definition of the "enable-international-welcome" feature flag.
 
 ```Java
 public class HelloWorld {
@@ -158,9 +162,9 @@ public class HelloWorld {
     }
 ```
 
-### Using Merci for Runtime Configuration
+### Using Ageris for Runtime Configuration
 
-Runtime configs are managed by a registered instance of Merci's config manager class. Using config objects of type HelloWorldConfig allows an external list of supported languages to be passed in at runtime.
+Runtime configs are managed by a registered instance of Ageris's config manager class. Using config objects of type HelloWorldConfig allows an external list of supported languages to be passed in at runtime.
 
 ```Java
 public class HelloWorld {
