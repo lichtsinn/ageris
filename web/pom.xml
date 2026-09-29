@@ -30,6 +30,19 @@ limitations under the License.
     <name>Merci Web</name>
     <description>Sample Jetty application serving feature flags and configs over HTTP</description>
 
+    <properties>
+        <!--
+        Not published. This module compiles, but it cannot run on the JDK it now targets: Jersey 2.25.1
+        needs javax.xml.bind, which was removed from the JDK in Java 11. Shipping a sample application to
+        Central that will not start is worse than shipping nothing. Remove this once Jersey and Jetty are
+        upgraded; the Gradle build also published distTar/distZip here, which is not reproduced yet either.
+        -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <!-- central-publishing-maven-plugin replaces the deploy plugin under -Prelease and does not read
+             maven.deploy.skip, so it needs telling separately. Both are required. -->
+        <skipPublishing>true</skipPublishing>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.medallia.merci</groupId>
