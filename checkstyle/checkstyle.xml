@@ -14,16 +14,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-<!DOCTYPE module PUBLIC "-//Puppy Crawl//DTD Check Configuration 1.2//EN" "http://www.puppycrawl.com/dtds/configuration_1_2.dtd">
+<!DOCTYPE module PUBLIC "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN" "https://checkstyle.org/dtds/configuration_1_3.dtd">
 <module name="Checker">
     <property name="severity" value="error"/>
     <property name="charset" value="UTF-8"/>
     <module name="TreeWalker">
-        <module name="com.medallia.merci.checkstyle.checks.annotation.RequiredNullabilityAnnotationCheck">
-            <property name="id" value="nullability" />
-            <property default="warning" name="severity" value="${checkstyle.new.severity}"/>
-            <property name="includeStaticMethods" value="true"/>
-        </module>
         <module name="UnusedImports">
             <property name="processJavadoc" value="true"/>
         </module>
@@ -31,9 +26,9 @@ limitations under the License.
         <module name="IllegalImport" />
         <module name="MissingSwitchDefault" />
         <module name="RedundantImport" />
-        <module name="LineLength">
-            <property name="max" value="200" />
-        </module>
+    </module>
+    <module name="LineLength">
+        <property name="max" value="200" />
     </module>
     <module name="RegexpSingleline">
         <property name="format" value="Thread.sleep"/>

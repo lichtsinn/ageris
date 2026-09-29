@@ -24,9 +24,9 @@
 # Log file
 *.log
 
-# Gradle
-**/build
-.gradle
+# Maven
+target/
+**/target
 
 # MacOS
 .DS_Store

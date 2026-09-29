@@ -23,7 +23,7 @@ import com.medallia.merci.core.metrics.FeatureFlagMetrics;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -64,7 +64,7 @@ public class ConfigurationLoaderTest {
 
         ConfigurationLoader configurationLoader = new ConfigurationLoader(configLoaderMetrics, Arrays.asList(featureFlagReader), executorService, Duration.ofSeconds(1));
         configurationLoader.start();
-        Mockito.verify(executorService).scheduleWithFixedDelay(runnableCaptor.capture(), Matchers.anyLong(), Matchers.anyLong(), Matchers.any(TimeUnit.class));
+        Mockito.verify(executorService).scheduleWithFixedDelay(runnableCaptor.capture(), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
         runnableCaptor.getValue().run();
         Assert.assertEquals(1, configLoaderMetrics.getConfigurationFailures());
         Assert.assertEquals(1, configLoaderMetrics.getConfigurationRequests());
@@ -85,7 +85,7 @@ public class ConfigurationLoaderTest {
 
         ConfigurationLoader configurationLoader = new ConfigurationLoader(configLoaderMetrics, Arrays.asList(featureFlagReader), executorService, Duration.ofSeconds(1));
         configurationLoader.start();
-        Mockito.verify(executorService).scheduleWithFixedDelay(runnableCaptor.capture(), Matchers.anyLong(), Matchers.anyLong(), Matchers.any(TimeUnit.class));
+        Mockito.verify(executorService).scheduleWithFixedDelay(runnableCaptor.capture(), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
         runnableCaptor.getValue().run();
         Assert.assertEquals(1, configLoaderMetrics.getConfigurationFailures());
         Assert.assertEquals(1, configLoaderMetrics.getConfigurationRequests());
@@ -107,11 +107,12 @@ public class ConfigurationLoaderTest {
 
         ConfigurationLoader configLoader = new ConfigurationLoader(configLoaderMetrics, Arrays.asList(featureFlagReader), executorService,Duration.ofSeconds(1));
         configLoader.start();
-        Mockito.verify(executorService, Mockito.times(1)).scheduleWithFixedDelay(runnableCaptor.capture(), Matchers.anyLong(), Matchers.anyLong(), Matchers.any(TimeUnit.class));
+        Mockito.verify(executorService, Mockito.times(1)).scheduleWithFixedDelay(runnableCaptor.capture(),
+                ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
         runnableCaptor.getValue().run();
         configLoader.shutdown();
         Mockito.verify(executorService, Mockito.times(1)).shutdown();
-        Mockito.verify(executorService, Mockito.times(1)).awaitTermination(Matchers.anyLong(), Matchers.any(TimeUnit.class));
+        Mockito.verify(executorService, Mockito.times(1)).awaitTermination(ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
     }
 
     /**
@@ -131,9 +132,10 @@ public class ConfigurationLoaderTest {
 
         ConfigurationLoader configLoader = new ConfigurationLoader(configLoaderMetrics, Arrays.asList(featureFlagUpdate), executorService, Duration.ofSeconds(1));
         configLoader.start();
-        Mockito.verify(executorService, Mockito.times(1)).scheduleWithFixedDelay(runnableCaptor.capture(), Matchers.anyLong(), Matchers.anyLong(), Matchers.any(TimeUnit.class));
+        Mockito.verify(executorService, Mockito.times(1)).scheduleWithFixedDelay(runnableCaptor.capture(),
+                ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
         runnableCaptor.getValue().run();
-        Mockito.doThrow(InterruptedException.class).when(executorService).awaitTermination(Matchers.anyLong(), Matchers.any(TimeUnit.class));
+        Mockito.doThrow(InterruptedException.class).when(executorService).awaitTermination(ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
         configLoader.shutdown();
     }
 
@@ -149,8 +151,8 @@ public class ConfigurationLoaderTest {
 
         new ConfigurationLoader(configLoaderMetrics, Arrays.asList(featureFlagReader), executorService, Duration.ofMillis(500)).start();
 
-        Mockito.verify(executorService).scheduleWithFixedDelay(Matchers.any(Runnable.class), Matchers.eq(0L), Matchers.eq(500L),
-                Matchers.eq(TimeUnit.MILLISECONDS));
+        Mockito.verify(executorService).scheduleWithFixedDelay(ArgumentMatchers.any(Runnable.class), ArgumentMatchers.eq(0L), ArgumentMatchers.eq(500L),
+                ArgumentMatchers.eq(TimeUnit.MILLISECONDS));
     }
 
     /**

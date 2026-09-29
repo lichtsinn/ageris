@@ -22,7 +22,7 @@ import com.medallia.merci.core.metrics.FeatureFlagMetrics;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 import java.security.MessageDigest;
@@ -106,7 +106,7 @@ public class MerciConcurrencyTest {
         ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
         merci.createLoader(Duration.ofSeconds(10)).start();
         Mockito.verify(executorService, Mockito.times(2)).scheduleWithFixedDelay(runnableCaptor.capture(),
-                Matchers.anyLong(), Matchers.anyLong(), Matchers.any(TimeUnit.class));
+                ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
         Runnable firstReader = runnableCaptor.getAllValues().get(0);
         Runnable secondReader = runnableCaptor.getAllValues().get(1);
 
