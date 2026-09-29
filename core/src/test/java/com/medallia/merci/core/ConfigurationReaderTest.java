@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Unit tests for {@link ConfigurationReader}.
@@ -216,6 +217,69 @@ public class ConfigurationReaderTest {
         Assert.assertEquals(1, featureFlagMetrics.getFeatureFlagUpdates());
         Assert.assertEquals(0, featureFlagMetrics.getFeatureFlagContentFailures());
         Assert.assertEquals(1, featureFlagMetrics.getFeatureFlagNameDuplicates());
+    }
+
+    /**
+     * Tests that a fetch returning nothing leaves previously loaded configurations in place, instead of
+     * emptying the store and making every feature flag fall back to the caller's default.
+     */
+    @Test
+    public void testEmptyFetchKeepsPreviouslyLoadedConfigurations() throws IOException {
+        AtomicBoolean sourceAvailable = new AtomicBoolean(true);
+        ConfigurationFetcher configurationFetcher = (fileNames, application) -> sourceAvailable.get()
+                ? ImmutableMap.of(FIRST_FILE, FIRST_JSON, SECOND_FILE, SECOND_JSON)
+                : ImmutableMap.of();
+
+        ConfigurationMapper<Boolean> featureFlagMapper = new FeatureFlagMapper("feature-flags", true, objectMapper, featureFlagMetrics);
+        ConfigurationReader<Boolean> configurationReader = new ConfigurationReader<>(APPLICATION, ImmutableList.of(FIRST_FILE, SECOND_FILE),
+                configurationFetcher, featureFlagMapper, featureFlagManager, digest, featureFlagMetrics, 0);
+
+        configurationReader.execute();
+        Assert.assertTrue(featureFlagManager.isActive("enable-feature-all", qa));
+
+        sourceAvailable.set(false);
+        try {
+            configurationReader.execute();
+            Assert.fail("IOException should have been thrown for an empty fetch.");
+        } catch (IOException exception) {
+            Assert.assertEquals(ImmutableList.of("enable-feature-all", "enable-feature-none"), featureFlagManager.getConfigurationNames());
+            Assert.assertTrue(featureFlagManager.isActive("enable-feature-all", qa));
+        }
+
+        /* The source recovers, and the reader picks it up again on the following cycle. */
+        sourceAvailable.set(true);
+        configurationReader.execute();
+        Assert.assertTrue(featureFlagManager.isActive("enable-feature-all", qa));
+    }
+
+    /**
+     * Tests that a reader with no registered files is not treated as an unavailable source.
+     */
+    @Test
+    public void testEmptyFetchForNoRegisteredFilesIsNotAFailure() throws IOException {
+        ConfigurationMapper<Boolean> featureFlagMapper = new FeatureFlagMapper("feature-flags", true, objectMapper, featureFlagMetrics);
+        ConfigurationReader<Boolean> configurationReader = new ConfigurationReader<>(APPLICATION, ImmutableList.of(),
+                (fileNames, application) -> ImmutableMap.of(), featureFlagMapper, featureFlagManager, digest, featureFlagMetrics, 0);
+
+        configurationReader.execute();
+
+        Assert.assertEquals(Collections.emptyList(), featureFlagManager.getConfigurationNames());
+    }
+
+    /**
+     * Tests that a partial fetch still updates, so that files a fetcher treats as optional keep working.
+     */
+    @Test
+    public void testPartialFetchStillUpdatesConfigurations() throws IOException {
+        ConfigurationMapper<Boolean> featureFlagMapper = new FeatureFlagMapper("feature-flags", true, objectMapper, featureFlagMetrics);
+        ConfigurationReader<Boolean> configurationReader = new ConfigurationReader<>(APPLICATION, ImmutableList.of(FIRST_FILE, SECOND_FILE),
+                (fileNames, application) -> ImmutableMap.of(FIRST_FILE, FIRST_JSON), featureFlagMapper, featureFlagManager, digest,
+                featureFlagMetrics, 0);
+
+        configurationReader.execute();
+
+        Assert.assertEquals(ImmutableList.of("enable-feature-all"), featureFlagManager.getConfigurationNames());
+        Assert.assertEquals(1, featureFlagMetrics.getFeatureFlagUpdates());
     }
 
     private static MessageDigest createMessageDigest() {

@@ -17,10 +17,13 @@ package com.medallia.merci.core;
 
 import com.medallia.merci.core.fetcher.ConfigurationFetcher;
 import com.medallia.merci.core.metrics.UpdateConfigurationMetrics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,6 +36,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  *  @param <T> type of configuration
  */
 public class ConfigurationReader<T> {
+
+    private final Logger log = LoggerFactory.getLogger(ConfigurationReader.class);
 
     private final String application;
     private final List<String> fileNames;
@@ -93,6 +98,22 @@ public class ConfigurationReader<T> {
      */
     public void execute() throws IOException {
         Map<String, String> contents = fetcher.fetch(fileNames, application);
+        if (contents.isEmpty() && !fileNames.isEmpty()) {
+            /* Storing nothing would drop every configuration and silently fall back to the defaults that
+             * callers pass to isActive() and getConfig(). Fetching no content at all means the configuration
+             * source is unavailable, not that all configurations were deleted, so keep the ones already
+             * loaded and try again on the next cycle. */
+            throw new IOException("Fetched no configuration content for any of " + fileNames + " of application "
+                    + application + ", keeping previously loaded configurations");
+        }
+        List<String> missingFileNames = missingFileNames(contents);
+        if (!missingFileNames.isEmpty()) {
+            /* A partial fetch still updates, because a fetcher may be configured to treat absent files as
+             * optional. Configurations defined only in those files do disappear, so say so. */
+            log.warn("Fetched {} of {} configuration files for application {}, missing {}. Configurations defined"
+                            + " only in the missing files fall back to the defaults provided by callers.",
+                    contents.size(), fileNames.size(), application, missingFileNames);
+        }
         contents.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEachOrdered(entry -> digest.update(entry.getValue().getBytes(StandardCharsets.UTF_8)));
         byte[] hash = digest.digest();
         if (skipsLeft.getAndDecrement() > 0 && Arrays.equals(previousHash, hash)) {
@@ -130,6 +151,18 @@ public class ConfigurationReader<T> {
         metrics.incrementNameDuplicates(numConfigurations - configurationCache.size());
         metrics.incrementUpdates(configurationCache.size());
         manager.updateConfigurations(configurationCache);
+    }
+
+    /**
+     * Returns the registered file names for which the fetcher returned no content.
+     *
+     * @param contents fetched configuration content, keyed by file name
+     * @return registered file names absent from the fetched content, empty if all were fetched
+     */
+    private List<String> missingFileNames(Map<String, String> contents) {
+        List<String> missing = new ArrayList<>(fileNames);
+        missing.removeAll(contents.keySet());
+        return missing;
     }
 
     /**
