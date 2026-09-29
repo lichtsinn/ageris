@@ -73,7 +73,7 @@ public class ConfigurationLoaderTest {
     /**
      * Tests that Configuration Fetcher throwing a RuntimeException results in a configuration failure.
      */
-    @Test(expected = RuntimeException.class)
+    @Test
     public void testConfigurationFetcherThrowingRuntimeExceptionResultsInConfigurationFailure()  {
         ConfigurationFetcher configurationFetcher = (fileNames, application) -> { throw new RuntimeException("problems"); };
 
@@ -135,6 +135,39 @@ public class ConfigurationLoaderTest {
         runnableCaptor.getValue().run();
         Mockito.doThrow(InterruptedException.class).when(executorService).awaitTermination(Matchers.anyLong(), Matchers.any(TimeUnit.class));
         configLoader.shutdown();
+    }
+
+    /**
+     * Tests that a refresh interval below one second is scheduled at its real length, rather than being
+     * truncated to a zero delay that would re-fetch configurations in a tight loop.
+     */
+    @Test
+    public void testSubSecondRefreshIntervalIsScheduledInMilliseconds() {
+        ScheduledExecutorService executorService = Mockito.mock(ScheduledExecutorService.class);
+        ConfigurationReader<Boolean> featureFlagReader = new ConfigurationReader<>("myapp-configurations", Arrays.asList("/featureflags.json"),
+                (fileNames, application) -> ImmutableMap.of(), featureFlagMapper, featureFlagManager, digest, featureFlagMetrics, 0);
+
+        new ConfigurationLoader(configLoaderMetrics, Arrays.asList(featureFlagReader), executorService, Duration.ofMillis(500)).start();
+
+        Mockito.verify(executorService).scheduleWithFixedDelay(Matchers.any(Runnable.class), Matchers.eq(0L), Matchers.eq(500L),
+                Matchers.eq(TimeUnit.MILLISECONDS));
+    }
+
+    /**
+     * Tests that a refresh interval shorter than the scheduler's resolution is rejected instead of
+     * silently becoming a zero delay.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testRefreshIntervalBelowOneMillisecondIsRejected() {
+        new ConfigurationLoader(configLoaderMetrics, Arrays.<ConfigurationReader>asList(), Mockito.mock(ScheduledExecutorService.class), Duration.ofNanos(1));
+    }
+
+    /**
+     * Tests that a refresh interval of zero is rejected.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testZeroRefreshIntervalIsRejected() {
+        new ConfigurationLoader(configLoaderMetrics, Arrays.<ConfigurationReader>asList(), Mockito.mock(ScheduledExecutorService.class), Duration.ZERO);
     }
 
     private static MessageDigest createMessageDigest() {

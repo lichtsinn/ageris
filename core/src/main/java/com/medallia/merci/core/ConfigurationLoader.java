@@ -56,7 +56,8 @@ public final class ConfigurationLoader {
      * @param metrics metrics for the loader
      * @param configurationReaders list of reader tasks
      * @param executorService service to periodically fetch, parse and store configurations
-     * @param refreshInterval time in seconds between scheduled read tasks
+     * @param refreshInterval time between scheduled read tasks, must be at least one millisecond
+     * @throws IllegalArgumentException if the refresh interval is not at least one millisecond
      */
     public ConfigurationLoader(ConfigurationLoaderMetrics metrics,
                                List<ConfigurationReader> configurationReaders,
@@ -65,6 +66,9 @@ public final class ConfigurationLoader {
         this.metrics = metrics;
         this.configurationReaders = configurationReaders;
         this.executorService = executorService;
+        if (refreshInterval.toMillis() <= 0) {
+            throw new IllegalArgumentException("Refresh interval must be at least one millisecond, but was " + refreshInterval);
+        }
         this.refreshInterval = refreshInterval;
     }
 
@@ -78,15 +82,14 @@ public final class ConfigurationLoader {
                 try {
                     metrics.incrementConfigurationRequests();
                     configurationReader.execute();
-                } catch (RuntimeException exception) {
-                    metrics.incrementConfigurationFailures();
-                    log.error("Skipped updating configurations due to exception ", exception);
-                    throw exception;
-                } catch (IOException exception) {
+                } catch (RuntimeException | IOException exception) {
+                    /* Never rethrow: scheduleWithFixedDelay() suppresses all further executions of a task that
+                     * throws, so a single transient failure would silently end configuration refresh for the
+                     * lifetime of the process, leaving the application on stale configurations. */
                     metrics.incrementConfigurationFailures();
                     log.error("Skipped updating configurations due to exception ", exception);
                 }
-            }, INITIAL_DELAY.getSeconds(), refreshInterval.getSeconds(), TimeUnit.SECONDS);
+            }, INITIAL_DELAY.toMillis(), refreshInterval.toMillis(), TimeUnit.MILLISECONDS);
         }
     }
 
