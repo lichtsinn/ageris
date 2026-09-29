@@ -24,15 +24,12 @@ buildscript {
 
     dependencies {
         classpath 'com.diffplug.spotless:spotless-plugin-gradle:3.5.2'
-        classpath 'com.netflix.nebula:nebula-release-plugin:6.3.0'
-        classpath 'org.jfrog.buildinfo:build-info-extractor-gradle:4.6.2'
         classpath 'com.h3xstream.findsecbugs:findsecbugs-plugin:1.7.1'
     }
 }
 
 plugins {
     id "com.github.spotbugs" version "1.6.1"
-    id 'nebula.release' version '6.3.0'
 }
 
 subprojects {
@@ -58,13 +55,6 @@ subprojects {
         }
     }
 
-    nebulaRelease {
-        version.inferredVersion = new org.ajoberstar.gradle.git.release.base.ReleaseVersion(
-                version.toString().replace('+', '-'),
-                version.inferredVersion.previousVersion,
-                version.inferredVersion.createTag)
-        println "Modified inferred version: ${version}"
-    }
 
     // SPOTBUGS
     spotbugs {
