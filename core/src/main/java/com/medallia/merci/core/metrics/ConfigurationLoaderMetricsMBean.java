@@ -22,9 +22,9 @@ import com.medallia.merci.core.ConfigurationLoader;
  */
 public interface ConfigurationLoaderMetricsMBean {
 
-    /** @retun total number of configuration requests, failed and successful. */
+    /** @return total number of configuration requests, failed and successful. */
     long getConfigurationRequests();
 
-    /** @retun total number of failed requests, reading and storing configurations. */
+    /** @return total number of failed requests, reading and storing configurations. */
     long getConfigurationFailures();
 }

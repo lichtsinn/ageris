@@ -25,6 +25,8 @@ import java.util.Map;
 
 /**
  * Writer for textual configuration content.
+ *
+ * @param <T> type of configuration value object
  */
 public class ConfigurationWriter<T>  {
 
@@ -34,7 +36,7 @@ public class ConfigurationWriter<T>  {
     /**
      * Creates configuration writer.
      *
-     * @root root root field of configurations
+     * @param root name of the root field holding the configurations in a configuration file
      * @param mapper JSON deserializer, converts textual representation of config to config object (graph)
      */
     public ConfigurationWriter(String root, ObjectMapper mapper) {

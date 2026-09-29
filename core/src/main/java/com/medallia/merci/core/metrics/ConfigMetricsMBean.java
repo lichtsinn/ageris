@@ -20,21 +20,21 @@ package com.medallia.merci.core.metrics;
  */
 public interface ConfigMetricsMBean {
 
-    /** @retun total number of skipped update cycles of configs due to same configuration content. */
+    /** @return total number of skipped update cycles of configs due to same configuration content. */
     long getConfigSameContentsSkips();
 
-    /** @retun total number of successful update cycles of configs due to new or modified configuration content. */
+    /** @return total number of successful update cycles of configs due to new or modified configuration content. */
     long getConfigNewContentsUpdates();
 
-    /** @retun total number of successful Java config updates after reading and deserializing configs. */
+    /** @return total number of successful Java config updates after reading and deserializing configs. */
     long getConfigUpdates();
 
-    /** @retun total number of failures reading configs due to problems parsing configuration content. */
+    /** @return total number of failures reading configs due to problems parsing configuration content. */
     long getConfigContentFailures();
 
-    /** @retun total number of skipped configs due to problems instantiating Java configuration objects. */
+    /** @return total number of skipped configs due to problems instantiating Java configuration objects. */
     long getConfigNonInstantiableSkips();
 
-    /** @retun total number of duplicate config name detections. */
+    /** @return total number of duplicate config name detections. */
     long getConfigNameDuplicates();
 }

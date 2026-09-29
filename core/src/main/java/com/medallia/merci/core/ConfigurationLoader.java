@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Configuration loader, that uses an executor service to asynchronously fetch, parse and store in-memory configurations.
  *
- * @NotThreadSafe
+ * This class is not thread-safe: start() and shutdown() are expected to be called once each, from a single thread.
  */
 public final class ConfigurationLoader {
 

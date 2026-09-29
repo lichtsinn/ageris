@@ -20,21 +20,21 @@ package com.medallia.merci.core.metrics;
  */
 public interface JsonConfigMetricsMBean {
 
-    /** @retun number of skipped update cycles of JsonNode configs due to same textual content. */
+    /** @return number of skipped update cycles of JsonNode configs due to same textual content. */
     long getJsonConfigSameContentsSkips();
 
-    /** @retun number of successful update cycles of JsonNode configs due to new textual content. */
+    /** @return number of successful update cycles of JsonNode configs due to new textual content. */
     long getJsonConfigNewContentsUpdates();
 
-    /** @retun number of successful JsonNode configs updates. */
+    /** @return number of successful JsonNode configs updates. */
     long getJsonConfigUpdates();
 
-    /** @retun number of failures reading and deserializing JsonNode configs due to deserialization problems with textual content. */
+    /** @return number of failures reading and deserializing JsonNode configs due to deserialization problems with textual content. */
     long getJsonConfigContentFailures();
 
-    /** @retun total number of skipped JsonNode configs due to problems instantiating Java configuration objects. */
+    /** @return total number of skipped JsonNode configs due to problems instantiating Java configuration objects. */
     long getJsonConfigNonInstantiableSkips();
 
-    /** @retun number of duplicate JsonNode config name detections. */
+    /** @return number of duplicate JsonNode config name detections. */
     long getJsonConfigNameDuplicates();
 }

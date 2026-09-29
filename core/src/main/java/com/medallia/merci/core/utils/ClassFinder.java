@@ -11,7 +11,7 @@ public interface ClassFinder<T> {
      *
      * @param className name for class lookup
      * @return class class for given name
-     * @throws ClassNotFoundException, if no class could be found with provided name
+     * @throws ClassNotFoundException if no class could be found with provided name
      */
     Class<T> findClass(String className) throws ClassNotFoundException;
 }

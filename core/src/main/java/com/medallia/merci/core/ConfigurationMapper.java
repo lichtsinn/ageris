@@ -44,8 +44,11 @@ public class ConfigurationMapper<T> {
     /**
      * Creates ConfigurationMapper.
      *
-     * @root root root field
+     * @param root name of the root field holding the configurations in a configuration file
+     * @param skipNonInstantiable true to skip a configuration that cannot be instantiated, false to fail the update
      * @param objectMapper JSON deserializer
+     * @param metrics metrics for configuration instantiation
+     * @param classFinder lookup from a configuration name to the class of its value object
      */
     public ConfigurationMapper(String root,
                                boolean skipNonInstantiable,
@@ -65,7 +68,7 @@ public class ConfigurationMapper<T> {
      *
      * @param content textual configuration content
      * @return map of configurations
-     * @throws IOException, if content could not be deserialized to map of configurations
+     * @throws IOException if content could not be deserialized to map of configurations
      */
     public Map<String, Configuration<T>> readValue(String content) throws IOException {
         JsonNode rootJsonNode = objectMapper.readTree(content).get(root);
@@ -137,7 +140,7 @@ public class ConfigurationMapper<T> {
      * @param json JSON representation to be de-serialized
      * @param clazz class of target config object
      * @return newly instantiated object of type T
-     * @throws IOException, if JavaType and JSON are incompatible or other deserialization problems
+     * @throws IOException if JavaType and JSON are incompatible or other deserialization problems
      */
     private Context<T> convertValue(JsonNode json, Class<T> clazz) throws IOException {
         try {

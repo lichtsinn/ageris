@@ -20,21 +20,21 @@ package com.medallia.merci.core.metrics;
  */
 public interface FeatureFlagMetricsMBean {
 
-    /** @retun total number of skipped update cycles of feature flags due to same configuration content. */
+    /** @return total number of skipped update cycles of feature flags due to same configuration content. */
     long getFeatureFlagSameContentsSkips();
 
-    /** @retun total number of successful update cycles of feature flags due to new configuration content. */
+    /** @return total number of successful update cycles of feature flags due to new configuration content. */
     long getFeatureFlagNewContentsUpdates();
 
-    /** @retun total number of successful feature flag updates. */
+    /** @return total number of successful feature flag updates. */
     long getFeatureFlagUpdates();
 
-    /** @retun total number of failures reading feature flags due due to problems parsing configuration content. */
+    /** @return total number of failures reading feature flags due due to problems parsing configuration content. */
     long getFeatureFlagContentFailures();
 
-    /** @retun total number of skipped feature flags due to problems instantiating Java configuration objects. */
+    /** @return total number of skipped feature flags due to problems instantiating Java configuration objects. */
     long getFeatureFlagNonInstantiableSkips();
 
-    /** @retun total number of duplicate feature flag name detections. */
+    /** @return total number of duplicate feature flag name detections. */
     long getFeatureFlagNameDuplicates();
 }
