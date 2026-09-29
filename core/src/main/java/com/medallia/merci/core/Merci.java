@@ -66,7 +66,9 @@ public final class Merci {
      * @param fetcher configuration fetcher
      * @param executorService executor service for scheduling asynchronous configuration tasks
      * @param objectMapper Jackson JSON deserializer
-     * @param digest message digest
+     * @param digest message digest, used only as a prototype: every configuration reader is given its own
+     *               instance of the same algorithm, because {@link MessageDigest} is not thread-safe and
+     *               readers run concurrently on the shared executor service
      */
     public Merci(ConfigurationFetcher fetcher, ScheduledExecutorService executorService, ObjectMapper objectMapper, MessageDigest digest) {
         this.fetcher = fetcher;
@@ -212,7 +214,7 @@ public final class Merci {
                 metrics = new FeatureFlagMetrics();
             }
             FeatureFlagMapper featureFlagMapper = new FeatureFlagMapper(rootNode, skipNonInstantiable, objectMapper, metrics);
-            ConfigurationReader<Boolean> featureFlagReader = new ConfigurationReader<>(application, fileNames, fetcher, featureFlagMapper, featureFlagManager, digest, metrics, maximumSkips);
+            ConfigurationReader<Boolean> featureFlagReader = new ConfigurationReader<>(application, fileNames, fetcher, featureFlagMapper, featureFlagManager, newDigest(), metrics, maximumSkips);
             readers.add(featureFlagReader);
             return featureFlagManager;
         }
@@ -264,7 +266,7 @@ public final class Merci {
                 metrics = new ConfigMetrics();
             }
             ConfigurationMapper<Object> configMapper = new ConfigurationMapper<>(rootNode, skipNonInstantiable, objectMapper, metrics, classFinder);
-            ConfigurationReader<Object> configReader = new ConfigurationReader<>(application, fileNames, fetcher, configMapper, configManager, digest, metrics, maximumSkips);
+            ConfigurationReader<Object> configReader = new ConfigurationReader<>(application, fileNames, fetcher, configMapper, configManager, newDigest(), metrics, maximumSkips);
             readers.add(configReader);
             return configManager;
         }
@@ -314,9 +316,29 @@ public final class Merci {
                 metrics = new JsonConfigMetrics();
             }
             JsonConfigMapper configMapper = new JsonConfigMapper(rootNode, skipNonInstantiable, objectMapper, metrics);
-            ConfigurationReader<JsonNode> configReader = new ConfigurationReader<>(application, fileNames, fetcher, configMapper, configManager, digest, metrics, maximumSkips);
+            ConfigurationReader<JsonNode> configReader = new ConfigurationReader<>(application, fileNames, fetcher, configMapper, configManager, newDigest(), metrics, maximumSkips);
             readers.add(configReader);
             return configManager;
+        }
+    }
+
+    /**
+     * Returns a new message digest instance using the same algorithm as the prototype digest.
+     *
+     * Each {@link ConfigurationReader} must own its digest: {@link MessageDigest} is not thread-safe, and
+     * {@link ConfigurationLoader} schedules every reader on one shared executor service, so readers would
+     * otherwise interleave their update() and digest() calls. Because digest() also resets the instance, a
+     * reader could then hash content it never fetched, or hash nothing at all, and wrongly conclude that
+     * configurations were unchanged - delaying real updates by up to maximumSkips refresh cycles.
+     *
+     * @return new message digest instance, never shared with another reader
+     * @throws IllegalStateException in case lookup throws NoSuchAlgorithmException
+     */
+    private MessageDigest newDigest() {
+        try {
+            return MessageDigest.getInstance(digest.getAlgorithm());
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
         }
     }
 
