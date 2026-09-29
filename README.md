@@ -1,5 +1,7 @@
 <!--
 Copyright 2018 Medallia, Inc.
+Modifications copyright 2026 Mario Lichtsinn; this file differs from the version
+released by Medallia, Inc. See NOTICE.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,8 +15,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-<img src="merci-logo.png" height="180px" />
 
 Merci is a framework for feature flags and runtime configuration. It relies on an easy to learn, recursive JSON structure.
 

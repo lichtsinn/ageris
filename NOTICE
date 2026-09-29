@@ -1,0 +1,17 @@
+Merci
+Copyright 2018 Medallia, Inc.
+Copyright 2026 Mario Lichtsinn
+
+This product includes software originally developed at Medallia, Inc. and
+released under the Apache License, Version 2.0 through version 0.1.2 (October
+2018), published under group id com.medallia.merci from
+https://github.com/medallia/merci.
+
+This distribution is an independent continuation of that project. It is not
+produced, maintained or endorsed by Medallia, Inc. Releases from version 0.2.0
+onwards are published under group id io.github.lichtsinn. Files that carry a
+"Modifications copyright" line in their header differ from the versions released
+by Medallia, Inc.; the repository history records each change.
+
+The name "Merci" is used to identify the origin of this software. Section 6 of
+the Apache License, Version 2.0 does not grant trademark rights.
