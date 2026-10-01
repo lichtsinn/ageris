@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 Copyright 2018 Medallia, Inc.
+Modifications copyright 2026 Mario Lichtsinn; this file differs from the version
+released by Medallia, Inc. See NOTICE.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +18,7 @@ limitations under the License.
 -->
 <FindBugsFilter>
     <Match>
-        <Package name="~com\.medallia\.ageris\..*"/>
+        <Package name="~io\.github\.lichtsinn\.ageris\..*"/>
         <Bug category="BAD_PRACTICE,CORRECTNESS,I18N,MALICIOUS_CODE,MT_CORRECTNESS,NOISE,PERFORMANCE,SECURITY,STYLE"></Bug>
         <!--<Bug code="SS,NP"/>-->
     </Match>
