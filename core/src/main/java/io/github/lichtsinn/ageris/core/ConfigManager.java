@@ -19,6 +19,8 @@ package io.github.lichtsinn.ageris.core;
 
 import io.github.lichtsinn.ageris.core.exception.ConfigInstantiationException;
 
+import java.lang.reflect.InvocationTargetException;
+
 /**
  * In-memory store for mixed-type configurations.
  */
@@ -37,7 +39,7 @@ public class ConfigManager extends AbstractConfigurationManager<Object> {
      * @param clazz Java class of config to be evaluated
      * @param runtimeContext context from request to be used for evaluation of config
      * @param <T> class of config
-     * @return config value object from config store or clazz.newInstance()
+     * @return config value object from config store, or a new instance from the class's no-argument constructor
      * @throws ConfigInstantiationException in case of instantiation problems
      */
     @SuppressWarnings("PMD.EmptyCatchBlock")
@@ -51,8 +53,12 @@ public class ConfigManager extends AbstractConfigurationManager<Object> {
             }
         }
         try {
-            return clazz.newInstance();
-        } catch (InstantiationException | IllegalAccessException exception) {
+            /* Class.newInstance() is deprecated and propagates any exception the constructor throws
+             * undeclared, including checked ones. Going through the constructor wraps those in
+             * InvocationTargetException instead, so every failure here is reported as declared. */
+            return clazz.getDeclaredConstructor().newInstance();
+        } catch (NoSuchMethodException | InstantiationException | IllegalAccessException
+                | InvocationTargetException exception) {
             throw new ConfigInstantiationException(exception);
         }
     }

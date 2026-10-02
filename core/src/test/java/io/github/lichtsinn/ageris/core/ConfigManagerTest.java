@@ -24,6 +24,7 @@ import io.github.lichtsinn.ageris.core.common.EnvironmentConfigurationContext;
 import io.github.lichtsinn.ageris.core.configs.AbstractClassConfig;
 import io.github.lichtsinn.ageris.core.configs.MessageConfig;
 import io.github.lichtsinn.ageris.core.configs.NumberConfig;
+import io.github.lichtsinn.ageris.core.configs.ThrowingConfig;
 import io.github.lichtsinn.ageris.core.exception.ConfigInstantiationException;
 import io.github.lichtsinn.ageris.core.structure.Context;
 import io.github.lichtsinn.ageris.core.structure.Modifiers;
@@ -99,6 +100,15 @@ public class ConfigManagerTest {
     @Test(expected = ConfigInstantiationException.class)
     public void testGetConfigThrowsConfigInstantiationExceptionForAbstractConfigClass() {
         configManager.getConfig(AbstractClassConfig.class, qa);
+    }
+
+    /**
+     * Tests that an exception from a config class's constructor is reported as a
+     * ConfigInstantiationException. Class.newInstance() let it escape undeclared instead.
+     */
+    @Test(expected = ConfigInstantiationException.class)
+    public void testGetConfigThrowsConfigInstantiationExceptionWhenConstructorFails() {
+        configManager.getConfig(ThrowingConfig.class, qa);
     }
 
     @Test(expected = ConfigInstantiationException.class)
