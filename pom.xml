@@ -275,6 +275,7 @@ limitations under the License.
                         <threshold>Low</threshold>
                         <includeTests>false</includeTests>
                         <includeFilterFile>${maven.multiModuleProjectDirectory}/spotbugs/includeFilter.xml</includeFilterFile>
+                        <excludeFilterFile>${maven.multiModuleProjectDirectory}/spotbugs/excludeFilter.xml</excludeFilterFile>
                     </configuration>
                     <executions>
                         <execution>
