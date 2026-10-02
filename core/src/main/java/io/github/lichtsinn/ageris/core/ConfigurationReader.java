@@ -60,7 +60,8 @@ public class ConfigurationReader<T> {
     private final AtomicInteger skipsLeft;
 
     /** Hash of configuration content from response of previous config request. */
-    private byte[] previousHash;
+    /* Volatile covers the reference only, which is all that is needed: the array is replaced, never modified. */
+    private volatile byte[] previousHash;
 
     /**
      * Creates configuration reader.

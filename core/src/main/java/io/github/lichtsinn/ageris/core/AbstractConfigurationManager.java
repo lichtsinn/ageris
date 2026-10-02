@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -41,7 +42,9 @@ public abstract class AbstractConfigurationManager<T> implements ConfigurationMa
 
     @Override
     public void updateConfigurations(Map<String, Configuration<T>> configurations) {
-        configurationStore.set(configurations);
+        /* Request threads read this map while the loader thread replaces it, so the store must never hold a
+         * map the caller can still mutate. Copying also keeps the order the configurations arrived in. */
+        configurationStore.set(Collections.unmodifiableMap(new LinkedHashMap<>(configurations)));
     }
 
     /**

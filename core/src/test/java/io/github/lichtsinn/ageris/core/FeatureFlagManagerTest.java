@@ -28,6 +28,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -132,5 +133,21 @@ public class FeatureFlagManagerTest {
     public void testAsStringForMissingSingleConfigurationReturnsYaml() throws IOException {
         String featureFlagsAsYaml = featureFlagManager.asString(yamlConfigurationWriter, FEATURE_FLAG_NAME);
         Assert.assertEquals(EMPTY_FEATURE_FLAGS_YAML, featureFlagsAsYaml);
+    }
+
+    /**
+     * Tests that the manager keeps its own copy of the configurations, so that a caller changing the map
+     * afterwards cannot alter what is being served.
+     */
+    @Test
+    public void testUpdateConfigurationsCopiesTheProvidedMap() {
+        FeatureFlagManager manager = new FeatureFlagManager();
+        Map<String, Configuration<Boolean>> configurations = new HashMap<>();
+        configurations.put("enable-one", new Configuration<>("enable-one", new Context<>(Boolean.TRUE, null)));
+
+        manager.updateConfigurations(configurations);
+        configurations.clear();
+
+        Assert.assertTrue(manager.isActive("enable-one", new ConfigurationContext()));
     }
 }
