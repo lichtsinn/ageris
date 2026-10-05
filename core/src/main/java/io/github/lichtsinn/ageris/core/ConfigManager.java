@@ -19,18 +19,58 @@ package io.github.lichtsinn.ageris.core;
 
 import io.github.lichtsinn.ageris.core.exception.ConfigInstantiationException;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.List;
+import java.util.Map;
 
 /**
  * In-memory store for mixed-type configurations.
  */
-public class ConfigManager extends AbstractConfigurationManager<Object> {
+public class ConfigManager implements ConfigurationManager<Object> {
+
+    private final ConfigurationStore<Object> store = new ConfigurationStore<>();
 
     /**
      * Creates new config manager.
      */
     public ConfigManager() {
-        super();
+        // Nothing to initialize beyond the store.
+    }
+
+    @Override
+    public void updateConfigurations(Map<String, Configuration<Object>> configurations) {
+        store.updateConfigurations(configurations);
+    }
+
+    /**
+     * @return list of configuration names from configuration store.
+     */
+    public List<String> getConfigurationNames() {
+        return store.getConfigurationNames();
+    }
+
+    /**
+     * Returns configuration store as JSON String.
+     *
+     * @param writer configuration writer to be used for serialization
+     * @return JSON of serialized configuration store
+     * @throws IOException in case of JSON processing issues
+     */
+    public String asString(ConfigurationWriter<Object> writer) throws IOException {
+        return store.asString(writer);
+    }
+
+    /**
+     * Returns configuration as JSON String.
+     *
+     * @param writer configuration writer to be used for serialization
+     * @param configName name of configuration to be serialized by configuration writer
+     * @return JSON of serialized configuration
+     * @throws IOException in case of JSON processing issues
+     */
+    public String asString(ConfigurationWriter<Object> writer, String configName) throws IOException {
+        return store.asString(writer, configName);
     }
 
     /**
@@ -44,7 +84,7 @@ public class ConfigManager extends AbstractConfigurationManager<Object> {
      */
     @SuppressWarnings("PMD.EmptyCatchBlock")
     public <T> T getConfig(Class<T> clazz, ConfigurationContext runtimeContext) throws ConfigInstantiationException {
-        Object value = getValue(clazz.getName(), runtimeContext, null);
+        Object value = store.getValue(clazz.getName(), runtimeContext, null);
         if (value != null) {
             try {
                 return clazz.cast(value);

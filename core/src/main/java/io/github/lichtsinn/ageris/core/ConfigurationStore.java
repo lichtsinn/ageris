@@ -27,21 +27,25 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Abstract class of in-memory store for configurations.
+ * In-memory store for configurations, held by each of the configuration managers.
  *
  * @param <T> type of configuration to be stored
  */
-public abstract class AbstractConfigurationManager<T> implements ConfigurationManager<T> {
+final class ConfigurationStore<T> {
 
     private final AtomicReference<Map<String, Configuration<T>>> configurationStore;
 
-    /** Protected constructor. */
-    protected AbstractConfigurationManager() {
+    /** Creates an empty store. */
+    ConfigurationStore() {
         configurationStore = new AtomicReference<>(new HashMap<>());
     }
 
-    @Override
-    public void updateConfigurations(Map<String, Configuration<T>> configurations) {
+    /**
+     * Replaces the stored configurations.
+     *
+     * @param configurations map of configurations to be stored
+     */
+    void updateConfigurations(Map<String, Configuration<T>> configurations) {
         /* Request threads read this map while the loader thread replaces it, so the store must never hold a
          * map the caller can still mutate. Copying also keeps the order the configurations arrived in. */
         configurationStore.set(Collections.unmodifiableMap(new LinkedHashMap<>(configurations)));
@@ -50,7 +54,7 @@ public abstract class AbstractConfigurationManager<T> implements ConfigurationMa
     /**
      * @return list of configuration names from configuration store.
      */
-    public List<String> getConfigurationNames() {
+    List<String> getConfigurationNames() {
         return new ArrayList<>(configurationStore.get().keySet());
     }
 
@@ -61,7 +65,7 @@ public abstract class AbstractConfigurationManager<T> implements ConfigurationMa
      * @return JSON of serialized configuration store
      * @throws IOException in case of JSON processing issues
      */
-    public String asString(ConfigurationWriter<T> writer) throws IOException {
+    String asString(ConfigurationWriter<T> writer) throws IOException {
         return writer.writeValueAsString(configurationStore.get());
     }
 
@@ -73,7 +77,7 @@ public abstract class AbstractConfigurationManager<T> implements ConfigurationMa
      * @return JSON of serialized configuration
      * @throws IOException in case of JSON processing issues
      */
-    public String asString(ConfigurationWriter<T> writer, String configName) throws IOException {
+    String asString(ConfigurationWriter<T> writer, String configName) throws IOException {
         Configuration<T> configuration = configurationStore.get().get(configName);
         if (configuration == null) {
             return writer.writeValueAsString(Collections.emptyMap());
@@ -92,7 +96,7 @@ public abstract class AbstractConfigurationManager<T> implements ConfigurationMa
      * @param defaultValue value to be returned, if no configuration with provided name found
      * @return configuration value object
      */
-    protected T getValue(String name, ConfigurationContext runtimeContext, T defaultValue) {
+    T getValue(String name, ConfigurationContext runtimeContext, T defaultValue) {
         Configuration<T> configuration = configurationStore.get().get(name);
         if (configuration != null) {
             return configuration.getValue(runtimeContext);

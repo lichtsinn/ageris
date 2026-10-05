@@ -17,16 +17,57 @@
  */
 package io.github.lichtsinn.ageris.core;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
 /**
  * In-memory store for runtime feature flags.
  */
-public class FeatureFlagManager extends AbstractConfigurationManager<Boolean> {
+public class FeatureFlagManager implements ConfigurationManager<Boolean> {
+
+    private final ConfigurationStore<Boolean> store = new ConfigurationStore<>();
 
     /**
      * Creates new feature flag manager.
      */
     public FeatureFlagManager() {
-        super();
+        // Nothing to initialize beyond the store.
+    }
+
+    @Override
+    public void updateConfigurations(Map<String, Configuration<Boolean>> configurations) {
+        store.updateConfigurations(configurations);
+    }
+
+    /**
+     * @return list of configuration names from configuration store.
+     */
+    public List<String> getConfigurationNames() {
+        return store.getConfigurationNames();
+    }
+
+    /**
+     * Returns configuration store as JSON String.
+     *
+     * @param writer configuration writer to be used for serialization
+     * @return JSON of serialized configuration store
+     * @throws IOException in case of JSON processing issues
+     */
+    public String asString(ConfigurationWriter<Boolean> writer) throws IOException {
+        return store.asString(writer);
+    }
+
+    /**
+     * Returns configuration as JSON String.
+     *
+     * @param writer configuration writer to be used for serialization
+     * @param configName name of configuration to be serialized by configuration writer
+     * @return JSON of serialized configuration
+     * @throws IOException in case of JSON processing issues
+     */
+    public String asString(ConfigurationWriter<Boolean> writer, String configName) throws IOException {
+        return store.asString(writer, configName);
     }
 
     /**
@@ -51,6 +92,6 @@ public class FeatureFlagManager extends AbstractConfigurationManager<Boolean> {
      * @return true or false if feature flag was found and is active or inactive, default value if feature flag could not be found.
      */
     public boolean isActive(String name, ConfigurationContext runtimeContext, boolean defaultValue) {
-        return getValue(name, runtimeContext, Boolean.valueOf(defaultValue)).booleanValue();
+        return store.getValue(name, runtimeContext, Boolean.valueOf(defaultValue)).booleanValue();
     }
 }

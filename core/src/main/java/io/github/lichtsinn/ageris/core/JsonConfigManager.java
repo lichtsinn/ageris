@@ -20,10 +20,16 @@ package io.github.lichtsinn.ageris.core;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Store for runtime JsonNode configurations.
  */
-public class JsonConfigManager extends AbstractConfigurationManager<JsonNode> {
+public class JsonConfigManager implements ConfigurationManager<JsonNode> {
+
+    private final ConfigurationStore<JsonNode> store = new ConfigurationStore<>();
 
     private final JsonNode emptyConfiguration;
 
@@ -31,8 +37,42 @@ public class JsonConfigManager extends AbstractConfigurationManager<JsonNode> {
      * Creates new Json Node config manager.
      */
     public JsonConfigManager() {
-        super();
         emptyConfiguration = new JsonNodeFactory(false).objectNode();
+    }
+
+    @Override
+    public void updateConfigurations(Map<String, Configuration<JsonNode>> configurations) {
+        store.updateConfigurations(configurations);
+    }
+
+    /**
+     * @return list of configuration names from configuration store.
+     */
+    public List<String> getConfigurationNames() {
+        return store.getConfigurationNames();
+    }
+
+    /**
+     * Returns configuration store as JSON String.
+     *
+     * @param writer configuration writer to be used for serialization
+     * @return JSON of serialized configuration store
+     * @throws IOException in case of JSON processing issues
+     */
+    public String asString(ConfigurationWriter<JsonNode> writer) throws IOException {
+        return store.asString(writer);
+    }
+
+    /**
+     * Returns configuration as JSON String.
+     *
+     * @param writer configuration writer to be used for serialization
+     * @param configName name of configuration to be serialized by configuration writer
+     * @return JSON of serialized configuration
+     * @throws IOException in case of JSON processing issues
+     */
+    public String asString(ConfigurationWriter<JsonNode> writer, String configName) throws IOException {
+        return store.asString(writer, configName);
     }
 
     /**
@@ -43,6 +83,6 @@ public class JsonConfigManager extends AbstractConfigurationManager<JsonNode> {
      * @return JsonNode configuration hierarchy
      */
     public JsonNode getConfig(String name, ConfigurationContext runtimeContext) {
-        return getValue(name, runtimeContext, emptyConfiguration);
+        return store.getValue(name, runtimeContext, emptyConfiguration);
     }
 }
