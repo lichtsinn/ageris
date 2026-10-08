@@ -80,7 +80,7 @@ public final class Ageris {
         this.digest = digest;
         readers = new ArrayList<>();
         bindings = new Bindings();
-        skipNonInstantiable = true;
+        skipNonInstantiable = false;
         maximumSkips = 0;
     }
 
@@ -103,14 +103,16 @@ public final class Ageris {
     }
 
     /**
-     * Continues loading configurations, just skip each non-instantiable configuration.
+     * Continues loading configurations, just skip each non-instantiable configuration. A skipped configuration is no
+     * longer served, even if an earlier version of it had loaded.
      */
     public void skipNonInstantiableConfiguration() {
         skipNonInstantiable = true;
     }
 
     /**
-     * Stops loading of all configurations in case of a non-instantiable configuration.
+     * Stops loading of all configurations in case of a non-instantiable configuration, keeping the ones already loaded.
+     * This is the default.
      */
     public void failNonInstantiableConfiguration() {
         skipNonInstantiable = false;

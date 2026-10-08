@@ -20,6 +20,7 @@ package io.github.lichtsinn.ageris.core;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.github.lichtsinn.ageris.core.configs.NumberConfig;
 import io.github.lichtsinn.ageris.core.fetcher.ConfigurationFetcher;
 import io.github.lichtsinn.ageris.core.metrics.ConfigMetrics;
 import io.github.lichtsinn.ageris.core.metrics.ConfigurationLoaderMetrics;
@@ -37,6 +38,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Unit tests for {@link Ageris}.
@@ -256,6 +258,33 @@ public class AgerisTest {
         Assert.assertEquals(2, configurationLoaderMetrics.getConfigurationRequests());
         Assert.assertEquals(ImmutableList.of("enable-all", "enable-none"), featureFlagManager.getConfigurationNames());
         Assert.assertEquals(Collections.emptyList(), configManager.getConfigurationNames());
+    }
+
+    @Test
+    public void testBadEntryKeepsPreviouslyLoadedConfigsByDefault() {
+        AtomicReference<String> content = new AtomicReference<>(
+                "{ \"configs\": { \"io.github.lichtsinn.ageris.core.configs.NumberConfig\": { \"value\" : { \"number\" : 7 } } } }");
+        ConfigurationFetcher fetcher = (fileNames, application) -> ImmutableMap.of("/configs.json", content.get());
+
+        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+        ScheduledExecutorService executorService = Mockito.mock(ScheduledExecutorService.class);
+
+        Ageris ageris = new Ageris(fetcher, executorService, objectMapper, digest);
+        ConfigMetrics configMetrics = new ConfigMetrics();
+        ConfigManager configManager = ageris.addConfigManager("myapp").registerFile("/configs.json").setMetrics(configMetrics).build();
+        ageris.createAndStartLoader(Duration.ofSeconds(10));
+
+        Mockito.verify(executorService).scheduleWithFixedDelay(runnableCaptor.capture(),
+                ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
+        runnableCaptor.getValue().run();
+        Assert.assertEquals(7, configManager.getConfig(NumberConfig.class, new ConfigurationContext()).getNumber());
+
+        content.set("{ \"configs\": { \"io.github.lichtsinn.ageris.core.configs.NumberConfig\": { \"value\" : { \"badproperty\" : 1 } } } }");
+        runnableCaptor.getValue().run();
+
+        Assert.assertEquals(7, configManager.getConfig(NumberConfig.class, new ConfigurationContext()).getNumber());
+        Assert.assertEquals(1, configMetrics.getConfigContentFailures());
+        Assert.assertEquals(0, configMetrics.getConfigNonInstantiableSkips());
     }
 
     private static MessageDigest sha256() {
