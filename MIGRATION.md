@@ -55,6 +55,7 @@ See [How updates are applied](README.md#how-updates-are-applied).
 
 ### Other changes
 
+* **Unchanged content is not loaded again.** Merci parsed the files and rebuilt every flag and config on each refresh, unless `setMaximumSkips` was called. Ageris skips a refresh whose content is the same as the content loaded last. A changed file is still picked up at the next refresh. To keep Merci's behavior, call `ageris.setMaximumSkips(0)`.
 * **A `null` value is rejected when the file is loaded.** In Merci, `"value": null` loaded and then threw `NullPointerException` on every evaluation. It now counts as an entry that cannot be loaded, so the change above applies to it.
 * **A fetch that returns nothing keeps the loaded configurations.** In Merci it cleared them, and callers got their defaults.
 * **A failed refresh no longer ends refreshing.** In Merci, a `RuntimeException` during a refresh canceled every later refresh of that manager for the lifetime of the process.

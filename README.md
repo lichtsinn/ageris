@@ -145,10 +145,11 @@ loader.start();
 Each manager refreshes on its own. Its files are fetched and its entries are replaced independently of the other managers, even when two managers read the same file.
 
 * Within one manager, an update replaces all of its entries at once.
+* Content that is the same as the content loaded last is not loaded again, so the objects a manager serves stay the same until a file changes. Call `ageris.setMaximumSkips(n)` to load unchanged content again after `n` refreshes, or with `0` on every refresh.
 * Managers that read the same file can be on different versions of it for a moment, and for longer if one of them fails to update.
 * If nothing can be fetched, or a file is not valid JSON or lacks the manager's root field, that manager keeps what it has.
 * If a single entry cannot be loaded, that manager keeps all of its entries as they were, until the file is fixed. Other managers still update.
-* Call `ageris.skipNonInstantiableConfiguration()` before building the managers to skip such an entry and update the rest instead. The skipped entry is then no longer served, so callers get their defaults, even if an earlier version of it had loaded.
+* Call `ageris.skipNonInstantiableConfiguration()` before building the managers to skip such an entry and update the rest instead. The skipped entry is then no longer served, so callers get their defaults, even if an earlier version of it had loaded. It is not tried again until a file changes.
 
 Failed updates are logged and counted in the loader metrics.
 

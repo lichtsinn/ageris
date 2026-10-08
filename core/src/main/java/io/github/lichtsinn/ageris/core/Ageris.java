@@ -81,7 +81,7 @@ public final class Ageris {
         readers = new ArrayList<>();
         bindings = new Bindings();
         skipNonInstantiable = false;
-        maximumSkips = 0;
+        maximumSkips = Integer.MAX_VALUE;
     }
 
     /**
@@ -94,9 +94,11 @@ public final class Ageris {
     }
 
     /**
-     * Sets maximum number of skips, until a refresh is forced.
+     * Sets maximum number of skips, until a refresh is forced. A refresh is skipped when the fetched content is the same
+     * as the content loaded last. The default is {@link Integer#MAX_VALUE}, so unchanged content is in practice never
+     * loaded again. With 0, the content is loaded again on every refresh.
      *
-     * @param maximumSkips
+     * @param maximumSkips maximum number of skips
      */
     public void setMaximumSkips(int maximumSkips) {
         this.maximumSkips = maximumSkips;
@@ -104,7 +106,7 @@ public final class Ageris {
 
     /**
      * Continues loading configurations, just skip each non-instantiable configuration. A skipped configuration is no
-     * longer served, even if an earlier version of it had loaded.
+     * longer served, even if an earlier version of it had loaded, and is not tried again until the content changes.
      */
     public void skipNonInstantiableConfiguration() {
         skipNonInstantiable = true;

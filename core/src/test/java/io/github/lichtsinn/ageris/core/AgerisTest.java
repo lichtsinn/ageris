@@ -287,6 +287,31 @@ public class AgerisTest {
         Assert.assertEquals(0, configMetrics.getConfigNonInstantiableSkips());
     }
 
+    @Test
+    public void testUnchangedContentIsNotAppliedAgainByDefault() {
+        ConfigurationFetcher fetcher = (fileNames, application) -> ImmutableMap.of("/configs.json",
+                "{ \"configs\": { \"io.github.lichtsinn.ageris.core.configs.NumberConfig\": { \"value\" : { \"number\" : 7 } } } }");
+
+        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+        ScheduledExecutorService executorService = Mockito.mock(ScheduledExecutorService.class);
+
+        Ageris ageris = new Ageris(fetcher, executorService, objectMapper, digest);
+        ConfigMetrics configMetrics = new ConfigMetrics();
+        ConfigManager configManager = ageris.addConfigManager("myapp").registerFile("/configs.json").setMetrics(configMetrics).build();
+        ageris.createAndStartLoader(Duration.ofSeconds(10));
+
+        Mockito.verify(executorService).scheduleWithFixedDelay(runnableCaptor.capture(),
+                ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(), ArgumentMatchers.any(TimeUnit.class));
+        runnableCaptor.getValue().run();
+        NumberConfig loaded = configManager.getConfig(NumberConfig.class, new ConfigurationContext());
+        runnableCaptor.getValue().run();
+        runnableCaptor.getValue().run();
+
+        Assert.assertSame(loaded, configManager.getConfig(NumberConfig.class, new ConfigurationContext()));
+        Assert.assertEquals(1, configMetrics.getConfigNewContentsUpdates());
+        Assert.assertEquals(2, configMetrics.getConfigSameContentsSkips());
+    }
+
     private static MessageDigest sha256() {
         try {
             return MessageDigest.getInstance("SHA-256");
