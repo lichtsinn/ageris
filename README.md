@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-Ageris is a framework for feature flags and runtime configuration. It relies on an easy to learn, recursive JSON structure.
+Ageris is a framework for feature flags, runtime configuration and policies. It relies on an easy to learn, recursive JSON structure.
 
 Ageris continues Merci, originally developed at Medallia, Inc. and released under the Apache License 2.0.
 It is not affiliated with or endorsed by Medallia. See [NOTICE](NOTICE).
@@ -206,3 +206,68 @@ public class HelloWorld {
     }
 }
 ```
+
+### Policies
+
+A policy is a config that decides something. Like any config it takes its values from the configuration file, so they can differ by environment, user or any other context and change at runtime. Unlike a plain config it also has methods, which work with live objects of your application.
+
+Those objects are its bindings. Bind them on `Ageris`:
+
+```Java
+Ageris ageris = new Ageris(fetcher);
+ageris.bind(PricingService.class, pricingService);
+ageris.bind("backupPricing", backupPricingService);   // by name, for a second object of the same type
+```
+
+A policy is an ordinary config class. It asks for a binding with Jackson's `@JacksonInject` on a constructor parameter; parameters with `@JsonProperty` come from the configuration file as usual.
+
+```Java
+public class DiscountPolicy {
+
+    private final int percent;
+    private final PricingService pricing;
+
+    @JsonCreator
+    public DiscountPolicy(@JsonProperty(value = "percent", required = true) int percent,
+                          @JacksonInject PricingService pricing) {
+        this.percent = percent;
+        this.pricing = pricing;
+    }
+
+    public Money discountFor(Order order) {
+        return pricing.basePrice(order).percent(percent);
+    }
+}
+```
+
+Policies have no section or manager of their own. They are defined in the `configs` section, with the same structure as any config, and read through the config manager:
+
+```JSON
+{
+  "configs": {
+    "com.example.DiscountPolicy": {
+      "value": { "percent": 5 },
+      "modifiers": {
+        "type": "environment",
+        "contexts": {
+          "qa": { "value": { "percent": 50 } }
+        }
+      }
+    }
+  }
+}
+```
+
+```Java
+Money discount = configManager.getConfig(DiscountPolicy.class, context).discountFor(order);
+```
+
+Things to know:
+
+* A configuration file can never supply or replace a binding. A policy takes its values from the file through constructor parameters only: if it gives a binding a `@JsonProperty` name, or leaves a field, a setter or a collection getter writable from the file, it is not loaded.
+* A binding can be any object: a service, a plain value, a supplier or a factory. Use a supplier or factory when a policy needs something new on each call.
+* Bindings are shared by all policies and all threads, so they must be thread-safe.
+* Bind everything before the loader is started. Binding the same type or name twice is an error.
+* Bindings replace any values set with `setInjectableValues` on the `ObjectMapper` you pass to Ageris; bind those objects on `Ageris` instead.
+* A policy usually has no no-argument constructor, so `getConfig` throws `ConfigInstantiationException` if the file has no entry for it.
+* A getter for a binding makes the field behind it writable from the file, and would also be serialized. Put `@JsonIgnore` on such a getter, or give the method another name such as `pricing()`.

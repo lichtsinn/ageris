@@ -39,4 +39,21 @@ public class FeatureFlagMapper extends ConfigurationMapper<Boolean> {
                              InstantiateConfigurationMetrics metrics) {
         super(root, skipNonInstantiable, objectMapper, metrics, className -> Boolean.class);
     }
+
+    /**
+     * Creates FeatureFlagMapper sharing the bindings of {@link Ageris}.
+     *
+     * @param root name of the root field holding the feature flags in a configuration file
+     * @param skipNonInstantiable true to skip a feature flag that cannot be instantiated, false to fail the update
+     * @param objectMapper JSON deserializer, converts textual representation of config to JsonNode config object (graph)
+     * @param metrics metrics for configuration instantiation
+     * @param bindings objects bound on {@link Ageris}
+     */
+    FeatureFlagMapper(String root,
+                      boolean skipNonInstantiable,
+                      ObjectMapper objectMapper,
+                      InstantiateConfigurationMetrics metrics,
+                      Bindings bindings) {
+        super(root, skipNonInstantiable, objectMapper, metrics, className -> Boolean.class, bindings);
+    }
 }

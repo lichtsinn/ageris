@@ -40,4 +40,21 @@ public class JsonConfigMapper extends ConfigurationMapper<JsonNode> {
                             InstantiateConfigurationMetrics metrics) {
         super(root, skipNonInstantiable, objectMapper, metrics, className -> JsonNode.class);
     }
+
+    /**
+     * Creates JsonConfigMapper sharing the bindings of {@link Ageris}.
+     *
+     * @param root name of the root field holding the configurations in a configuration file
+     * @param skipNonInstantiable true to skip a config that cannot be instantiated, false to fail the update
+     * @param objectMapper JSON deserializer, converts textual representation of config to JsonNode config object (graph)
+     * @param metrics metrics for configuration instantiation
+     * @param bindings objects bound on {@link Ageris}
+     */
+    JsonConfigMapper(String root,
+                     boolean skipNonInstantiable,
+                     ObjectMapper objectMapper,
+                     InstantiateConfigurationMetrics metrics,
+                     Bindings bindings) {
+        super(root, skipNonInstantiable, objectMapper, metrics, className -> JsonNode.class, bindings);
+    }
 }

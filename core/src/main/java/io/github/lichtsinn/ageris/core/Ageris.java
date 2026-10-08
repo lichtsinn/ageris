@@ -49,6 +49,7 @@ public final class Ageris {
     private final ObjectMapper objectMapper;
     private final MessageDigest digest;
     private final List<ConfigurationReader> readers;
+    private final Bindings bindings;
     private ConfigurationLoaderMetrics metrics;
     private boolean skipNonInstantiable;
     private int maximumSkips;
@@ -78,6 +79,7 @@ public final class Ageris {
         this.objectMapper = objectMapper;
         this.digest = digest;
         readers = new ArrayList<>();
+        bindings = new Bindings();
         skipNonInstantiable = true;
         maximumSkips = 0;
     }
@@ -112,6 +114,37 @@ public final class Ageris {
      */
     public void failNonInstantiableConfiguration() {
         skipNonInstantiable = false;
+    }
+
+    /**
+     * Binds an object that config classes can receive through their constructor, by declaring a parameter
+     * of this type annotated with {@code @JacksonInject}.
+     *
+     * The object is shared by every config that asks for it and by every thread that uses those configs, so
+     * it must be safe to use concurrently. Bind everything before the loader is started. A configuration
+     * file can never supply or replace a binding.
+     *
+     * @param type type a config class declares to receive the binding
+     * @param binding object to hand to config classes
+     * @param <B> type of the binding
+     * @throws IllegalArgumentException if type or binding is null, or the type is already bound
+     */
+    public <B> void bind(Class<B> type, B binding) {
+        bindings.bind(type, binding);
+    }
+
+    /**
+     * Binds an object under a name, for when two objects of the same type are needed. A config class asks
+     * for it with {@code @JacksonInject("name")} on a constructor parameter.
+     *
+     * The same rules apply as for {@link #bind(Class, Object)}.
+     *
+     * @param name name a config class uses to ask for the binding
+     * @param binding object to hand to config classes
+     * @throws IllegalArgumentException if name or binding is null, or the name is already bound
+     */
+    public void bind(String name, Object binding) {
+        bindings.bind(name, binding);
     }
 
     /**
@@ -215,7 +248,7 @@ public final class Ageris {
             if (metrics == null) {
                 metrics = new FeatureFlagMetrics();
             }
-            FeatureFlagMapper featureFlagMapper = new FeatureFlagMapper(rootNode, skipNonInstantiable, objectMapper, metrics);
+            FeatureFlagMapper featureFlagMapper = new FeatureFlagMapper(rootNode, skipNonInstantiable, objectMapper, metrics, bindings);
             ConfigurationReader<Boolean> featureFlagReader = new ConfigurationReader<>(application, fileNames, fetcher, featureFlagMapper, featureFlagManager, newDigest(), metrics, maximumSkips);
             readers.add(featureFlagReader);
             return featureFlagManager;
@@ -267,7 +300,8 @@ public final class Ageris {
             if (metrics == null) {
                 metrics = new ConfigMetrics();
             }
-            ConfigurationMapper<Object> configMapper = new ConfigurationMapper<>(rootNode, skipNonInstantiable, objectMapper, metrics, classFinder);
+            ConfigurationMapper<Object> configMapper = new ConfigurationMapper<>(rootNode, skipNonInstantiable, objectMapper, metrics, classFinder,
+                    bindings);
             ConfigurationReader<Object> configReader = new ConfigurationReader<>(application, fileNames, fetcher, configMapper, configManager, newDigest(), metrics, maximumSkips);
             readers.add(configReader);
             return configManager;
@@ -317,7 +351,7 @@ public final class Ageris {
             if (metrics == null) {
                 metrics = new JsonConfigMetrics();
             }
-            JsonConfigMapper configMapper = new JsonConfigMapper(rootNode, skipNonInstantiable, objectMapper, metrics);
+            JsonConfigMapper configMapper = new JsonConfigMapper(rootNode, skipNonInstantiable, objectMapper, metrics, bindings);
             ConfigurationReader<JsonNode> configReader = new ConfigurationReader<>(application, fileNames, fetcher, configMapper, configManager, newDigest(), metrics, maximumSkips);
             readers.add(configReader);
             return configManager;

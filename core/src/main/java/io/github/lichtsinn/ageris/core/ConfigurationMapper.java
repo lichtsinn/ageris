@@ -42,6 +42,7 @@ public class ConfigurationMapper<T> {
     private final InstantiateConfigurationMetrics metrics;
     private final ClassFinder<T> classFinder;
     private final boolean skipNonInstantiable;
+    private final ObjectMapper bindingMapper;
 
     /**
      * Creates ConfigurationMapper.
@@ -57,11 +58,35 @@ public class ConfigurationMapper<T> {
                                ObjectMapper objectMapper,
                                InstantiateConfigurationMetrics metrics,
                                ClassFinder<T> classFinder) {
+        this(root, skipNonInstantiable, objectMapper, metrics, classFinder, new Bindings());
+    }
+
+    /**
+     * Creates ConfigurationMapper that hands bindings to the config classes asking for them.
+     *
+     * @param root name of the root field holding the configurations in a configuration file
+     * @param skipNonInstantiable true to skip a configuration that cannot be instantiated, false to fail the update
+     * @param objectMapper JSON deserializer
+     * @param metrics metrics for configuration instantiation
+     * @param classFinder lookup from a configuration name to the class of its value object
+     * @param bindings objects bound on {@link Ageris}
+     * @throws IllegalStateException if objectMapper is of a subclass that does not support copy()
+     */
+    ConfigurationMapper(String root,
+                        boolean skipNonInstantiable,
+                        ObjectMapper objectMapper,
+                        InstantiateConfigurationMetrics metrics,
+                        ClassFinder<T> classFinder,
+                        Bindings bindings) {
         this.root = root;
         this.objectMapper = objectMapper;
         this.skipNonInstantiable = skipNonInstantiable;
         this.metrics = metrics;
         this.classFinder = classFinder;
+        /* The guard and the bindings go on a private copy, so the mapper the caller handed in is never changed. */
+        bindingMapper = objectMapper.copy();
+        BindingGuard.install(bindingMapper);
+        bindingMapper.setInjectableValues(bindings);
         configurationWriter = new ConfigurationWriter<>(root, objectMapper);
     }
 
@@ -146,8 +171,8 @@ public class ConfigurationMapper<T> {
      */
     private Context<T> convertValue(JsonNode json, Class<T> clazz) throws IOException {
         try {
-            JavaType javaType = objectMapper.getTypeFactory().constructParametricType(Context.class, clazz);
-            return objectMapper.convertValue(json, javaType);
+            JavaType javaType = bindingMapper.getTypeFactory().constructParametricType(Context.class, clazz);
+            return bindingMapper.convertValue(json, javaType);
         } catch (IllegalArgumentException exception) {
             //non-instantiable configuration class
             throw new IOException(exception);
