@@ -32,8 +32,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -264,7 +266,7 @@ public class InMemoryAgerisTest {
         Assert.assertEquals(Arrays.asList("flags", "configs", "json"), calls);
     }
 
-    @Test
+    @Test(timeout = 10000)
     public void testListenerMaySetAnotherValue() {
         ageris.featureFlagManager().addListener(update -> ageris.setConfig(new NumberConfig(update.getConfigurationNames().size())));
 
@@ -360,24 +362,29 @@ public class InMemoryAgerisTest {
     }
 
     @Test
-    public void testConcurrentSetsLoseNoEntry() throws InterruptedException {
+    public void testConcurrentSetsLoseNoEntry() throws InterruptedException, ExecutionException {
         int threads = 8;
         int flagsPerThread = 50;
         ExecutorService executor = Executors.newFixedThreadPool(threads);
         CountDownLatch start = new CountDownLatch(1);
+        List<Future<Object>> results = new ArrayList<>();
         for (int thread = 0; thread < threads; thread++) {
             int id = thread;
-            executor.submit(() -> {
+            results.add(executor.submit(() -> {
                 start.await();
                 for (int flag = 0; flag < flagsPerThread; flag++) {
                     ageris.setFlag("flag-" + id + "-" + flag, true);
                 }
                 return null;
-            });
+            }));
         }
         start.countDown();
         executor.shutdown();
         Assert.assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
+        for (Future<Object> result : results) {
+            /* Rethrows whatever a task threw, which a wrong count alone would not explain. */
+            result.get();
+        }
 
         Assert.assertEquals(threads * flagsPerThread, ageris.featureFlagManager().getConfigurationNames().size());
     }

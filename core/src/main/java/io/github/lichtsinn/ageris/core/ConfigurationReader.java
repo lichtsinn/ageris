@@ -73,7 +73,9 @@ public class ConfigurationReader<T> {
     private final CountDownLatch firstLoad = new CountDownLatch(1);
 
     /**
-     * Creates configuration reader.
+     * Creates configuration reader. A reader created here does not tell its manager about failed refreshes, so the
+     * manager never reports the stale state, and its listeners are also called when unchanged content is loaded
+     * again. Managers and readers built through {@link Ageris} do not have these limits.
      *
      * @param application application
      * @param fileNames names of textual configuration files

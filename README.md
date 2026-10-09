@@ -315,10 +315,10 @@ Things to know:
 ```Java
 InMemoryAgeris ageris = new InMemoryAgeris()
         .setFlag("enable-international-welcome", true)
-        .setConfig(new DBConfig("db1.example.com"))
+        .setConfig(new HelloWorldConfig(Arrays.asList("de", "fr")))
         .setConfig(new DiscountPolicy(25, fakePricingService));
 
-WelcomeService service = new WelcomeService(ageris.featureFlagManager(), ageris.configManager());
+HelloWorld helloWorld = new HelloWorld(ageris.featureFlagManager());
 
 /* Change a value in the middle of a test. */
 ageris.setFlag("enable-international-welcome", false);
@@ -328,7 +328,7 @@ ageris.setFlag("enable-international-welcome", false);
 * A change takes effect at once, and the manager's listeners are called.
 * A policy is constructed by the test, with the objects it would be bound to or with stand-ins for them. No bindings are registered.
 * A flag or config that is not set behaves as in production: the flag is off, and the config comes from its no-argument constructor.
-* If the object's class is not the class your code asks for, as with a subclass or a mock, name the class: `setConfig(DBConfig.class, mockConfig)`.
+* If the object's class is not the class your code asks for, as with a subclass or a mock, name the class: `setConfig(HelloWorldConfig.class, mockConfig)`.
 
 ### How Ageris loads and updates
 
@@ -386,7 +386,7 @@ configManager.addListener(update ->
 
 * A listener is called on the first load and whenever the content of the manager's files changes. It is not called for unchanged content or for a refresh that failed.
 * It is called after the entries were replaced, so lookups made inside it return the new values.
-* It runs on the loader's thread, and the manager's next refresh waits for it. Keep it quick, and hand slow work to an executor of your own.
+* It runs on the loader's thread, and the manager's next refresh waits for it. If you pass Ageris an executor with a single thread, the refreshes of the other managers wait as well. Keep it quick, and hand slow work to an executor of your own.
 * An exception thrown by a listener is logged. The update stays applied and the other listeners are still called.
 
 A listener that is a class can also hear when the status of the manager changes:

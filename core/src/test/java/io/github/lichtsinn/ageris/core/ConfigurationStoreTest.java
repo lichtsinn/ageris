@@ -451,6 +451,28 @@ public class ConfigurationStoreTest {
     }
 
     @Test
+    public void testUpdateNamesAreThoseOfTheUpdateThatWasApplied() throws IOException {
+        List<String> events = new ArrayList<>();
+        Map<String, Configuration<Boolean>> other = flags("enable-none");
+        store.addListener(new ConfigurationListener() {
+            @Override
+            public void onUpdate(ConfigurationUpdate update) {
+                events.add("update " + update.getConfigurationNames());
+            }
+
+            @Override
+            public void onStatusChange(ConfigurationStatus status) {
+                /* Replaces the entries before the update that caused this call is reported. */
+                store.updateConfigurations(other, false);
+            }
+        });
+
+        store.updateConfigurations(flags("enable-all"));
+
+        Assert.assertEquals(Collections.singletonList("update [enable-all]"), events);
+    }
+
+    @Test
     public void testEveryListenerHearsTheStatusChangeBeforeAnyHearsTheUpdate() throws IOException {
         List<String> events = new ArrayList<>();
         store.addListener(new RecordingListener(events));

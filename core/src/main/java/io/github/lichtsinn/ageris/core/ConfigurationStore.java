@@ -85,10 +85,13 @@ final class ConfigurationStore<T> {
     void updateConfigurations(Map<String, Configuration<T>> configurations, boolean notify) {
         /* Request threads read this map while the loader thread replaces it, so the store must never hold a
          * map the caller can still mutate. Copying also keeps the order the configurations arrived in. */
-        configurationStore.set(Collections.unmodifiableMap(new LinkedHashMap<>(configurations)));
+        Map<String, Configuration<T>> stored = Collections.unmodifiableMap(new LinkedHashMap<>(configurations));
+        configurationStore.set(stored);
         changeStatus(current -> new ConfigurationStatus(State.LOADED, null));
         if (notify) {
-            ConfigurationUpdate update = new ConfigurationUpdate(getConfigurationNames());
+            /* The names of this update, not of whatever the store holds by now: a status listener or another
+             * thread may have replaced the configurations again in the meantime. */
+            ConfigurationUpdate update = new ConfigurationUpdate(new ArrayList<>(stored.keySet()));
             callListeners(listener -> listener.onUpdate(update));
         }
     }

@@ -26,6 +26,7 @@ import io.github.lichtsinn.ageris.core.metrics.ConfigMetrics;
 import io.github.lichtsinn.ageris.core.metrics.FeatureFlagMetrics;
 import io.github.lichtsinn.ageris.core.metrics.JsonConfigMetrics;
 import io.github.lichtsinn.ageris.core.structure.Context;
+import io.github.lichtsinn.ageris.core.structure.Modifiers;
 import io.github.lichtsinn.ageris.core.utils.DefaultClassFinder;
 import org.junit.Assert;
 import org.junit.Before;
@@ -152,6 +153,21 @@ public class ManagerEvaluateTest {
         Assert.assertEquals(Reason.NOT_FOUND, evaluation.getReason());
         Assert.assertEquals(Collections.emptyMap(), evaluation.getMatches());
         Assert.assertEquals(-1, configs.getConfig(NumberConfig.class, qa).getNumber());
+    }
+
+    @Test
+    public void testStoredValueOfAnotherClassUnderAMatchingModifierIsNotFoundWithoutMatches() {
+        Context<Object> wrongInQa = new Context<>(new NumberConfig(1),
+                new Modifiers<>("environment", ImmutableMap.of("qa", new Context<>("not a number config", null))));
+        configs.updateConfigurations(ImmutableMap.of(NUMBER_CONFIG, new Configuration<>(NUMBER_CONFIG, wrongInQa)));
+
+        Evaluation<NumberConfig> evaluation = configs.evaluate(NumberConfig.class, qa);
+
+        Assert.assertEquals(-1, evaluation.getValue().getNumber());
+        Assert.assertEquals(Reason.NOT_FOUND, evaluation.getReason());
+        Assert.assertEquals(Collections.emptyMap(), evaluation.getMatches());
+        Assert.assertEquals(-1, configs.getConfig(NumberConfig.class, qa).getNumber());
+        Assert.assertEquals(Reason.DEFAULT, configs.evaluate(NumberConfig.class, prod).getReason());
     }
 
     @Test

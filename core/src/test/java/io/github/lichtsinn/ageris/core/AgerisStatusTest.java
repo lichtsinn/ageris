@@ -165,6 +165,35 @@ public class AgerisStatusTest {
     }
 
     @Test
+    public void testMissingRootFieldIsAFailureThatNamesTheField() {
+        content.set("{ \"feature-flags\": { } }");
+        ConfigManager configManager = ageris.addConfigManager("myapp").registerFile("/configs.json").build();
+
+        startLoader().run();
+
+        Assert.assertEquals(State.NOT_LOADED, configManager.getStatus().getState());
+        Assert.assertTrue(configManager.getStatus().getFailure().getMessage(), configManager.getStatus().getFailure().getMessage().contains("configs"));
+    }
+
+    @Test
+    public void testFetchThatReturnsNothingMakesALoadedManagerStale() {
+        AtomicReference<Boolean> available = new AtomicReference<>(Boolean.TRUE);
+        ConfigurationFetcher fetcher = (fileNames, application) -> available.get()
+                ? ImmutableMap.of("/configs.json", GOOD) : ImmutableMap.of();
+        Ageris fading = new Ageris(fetcher, executorService, new ObjectMapper(), sha256());
+        ConfigManager configManager = fading.addConfigManager("myapp").registerFile("/configs.json").build();
+        fading.createAndStartLoader(Duration.ofSeconds(10));
+        Runnable refresh = capturedRefresh();
+        refresh.run();
+
+        available.set(Boolean.FALSE);
+        refresh.run();
+
+        Assert.assertEquals(State.STALE, configManager.getStatus().getState());
+        Assert.assertEquals(7, configManager.getConfig(NumberConfig.class, new ConfigurationContext()).getNumber());
+    }
+
+    @Test
     public void testFeatureFlagAndJsonConfigManagersReportFailuresToo() {
         content.set("not json");
         FeatureFlagManager featureFlagManager = ageris.addFeatureFlagManager("myapp").registerFile("/configs.json").build();

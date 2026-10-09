@@ -18,12 +18,15 @@ package io.github.lichtsinn.ageris.core;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.github.lichtsinn.ageris.core.ConfigurationStatus.State;
+import io.github.lichtsinn.ageris.core.metrics.ConfigurationLoaderMetrics;
+import io.github.lichtsinn.ageris.core.metrics.FeatureFlagMetrics;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
@@ -133,6 +136,40 @@ public class ConfigurationLoaderAwaitTest {
         capturedRefreshes(1).get(0).run();
 
         Assert.assertTrue(loader.awaitFirstLoad(Duration.ofSeconds(Long.MAX_VALUE)));
+    }
+
+    @Test(timeout = 30000)
+    public void testVeryLargeTimeoutWaitsUntilTheLoad() throws InterruptedException {
+        ageris.addFeatureFlagManager("myapp").registerFile("/all.json").build();
+        ConfigurationLoader loader = ageris.createAndStartLoader(Duration.ofSeconds(10));
+        Runnable refresh = capturedRefreshes(1).get(0);
+        AtomicReference<Boolean> result = new AtomicReference<>();
+        Thread waiting = new Thread(() -> result.set(loader.awaitFirstLoad(Duration.ofSeconds(Long.MAX_VALUE))));
+        waiting.start();
+
+        waiting.join(200);
+        Assert.assertTrue("The wait ended before anything had loaded", waiting.isAlive());
+        refresh.run();
+        waiting.join(10000);
+
+        Assert.assertEquals(Boolean.TRUE, result.get());
+    }
+
+    @Test
+    public void testWaitWorksForAReaderBuiltWithoutAgeris() throws IOException {
+        FeatureFlagManager manager = new FeatureFlagManager();
+        ConfigurationReader<Boolean> reader = new ConfigurationReader<>("myapp", Collections.singletonList("/all.json"),
+                (fileNames, application) -> ImmutableMap.of("/all.json", FLAGS),
+                new FeatureFlagMapper("feature-flags", false, new ObjectMapper(), new FeatureFlagMetrics()), manager, sha256(),
+                new FeatureFlagMetrics(), 0);
+        ConfigurationLoader loader = new ConfigurationLoader(new ConfigurationLoaderMetrics(), Collections.singletonList(reader),
+                executorService, Duration.ofSeconds(10));
+
+        Assert.assertFalse(loader.awaitFirstLoad(Duration.ZERO));
+        reader.execute();
+
+        Assert.assertTrue(loader.awaitFirstLoad(Duration.ZERO));
+        Assert.assertEquals(State.LOADED, manager.getStatus().getState());
     }
 
     @Test(timeout = 5000)

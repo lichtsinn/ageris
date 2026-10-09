@@ -31,7 +31,8 @@ import java.util.Map;
  * them only when the content has changed. A policy is set like any config: construct it with the objects it would
  * be bound to, or with stand-ins for them.
  *
- * This class is for tests. Nothing refreshes its managers.
+ * This class is for tests. Nothing refreshes its managers. Set values through this class only: configurations
+ * passed to {@code updateConfigurations} of one of its managers are replaced by the next value set here.
  *
  * Listeners are called while this object is locked. A listener may set another value itself, but it must not
  * wait for another thread that sets a value on this or another {@code InMemoryAgeris}.

@@ -151,6 +151,32 @@ public class AgerisListenerTest {
     }
 
     @Test
+    public void testStatusListenerThrowingAnErrorDoesNotEndTheRefresh() {
+        ConfigManager configManager = managerWithListener();
+        configManager.addListener(new ConfigurationListener() {
+            @Override
+            public void onUpdate(ConfigurationUpdate update) {
+                // Only the status is of interest here.
+            }
+
+            @Override
+            public void onStatusChange(ConfigurationStatus status) {
+                throw new NoClassDefFoundError("listener broke");
+            }
+        });
+        Runnable refresh = startLoader();
+
+        refresh.run();
+        content.set(BAD);
+        refresh.run();
+        content.set(CHANGED);
+        refresh.run();
+
+        Assert.assertEquals(Arrays.asList(7, 8), numbersSeen);
+        Assert.assertEquals(State.LOADED, configManager.getStatus().getState());
+    }
+
+    @Test
     public void testStatusChangesAreReportedThroughRefreshes() {
         List<State> states = new ArrayList<>();
         ConfigManager configManager = ageris.addConfigManager("myapp").registerFile("/configs.json").build();

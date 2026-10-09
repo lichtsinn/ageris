@@ -126,6 +126,7 @@ public class ContextEvaluateTest {
         Evaluation<String> evaluation = nested.evaluate(context("environment", "qa"));
 
         Assert.assertEquals("inner", evaluation.getValue());
+        Assert.assertEquals(Reason.MATCH, evaluation.getReason());
         Assert.assertEquals(Collections.singletonMap("environment", "qa"), evaluation.getMatches());
     }
 
@@ -140,7 +141,12 @@ public class ContextEvaluateTest {
                 context("cluster", "eu1"),
                 context("user", "joe"));
 
+        Map<String, Context<String>> nullNested = new HashMap<>();
+        nullNested.put("qa", null);
+        Context<String> withNull = new Context<>("base", new Modifiers<>("environment", nullNested));
+
         for (ConfigurationContext context : contexts) {
+            Assert.assertEquals(withNull.getValue(context), withNull.evaluate(context).getValue());
             Assert.assertEquals(ruled.getValue(context), ruled.evaluate(context).getValue());
             Assert.assertEquals(plain.getValue(context), plain.evaluate(context).getValue());
         }
