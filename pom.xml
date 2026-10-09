@@ -387,6 +387,18 @@ limitations under the License.
     </build>
 
     <profiles>
+        <profile>
+            <!-- A module without Java sources, such as this parent, has nothing for SpotBugs to look at. -->
+            <id>no-java-sources</id>
+            <activation>
+                <file>
+                    <missing>${basedir}/src/main/java</missing>
+                </file>
+            </activation>
+            <properties>
+                <spotbugs.skip>true</spotbugs.skip>
+            </properties>
+        </profile>
         <!--
         Publishing to Maven Central. Kept in a profile so ordinary builds neither sign nor deploy:
 

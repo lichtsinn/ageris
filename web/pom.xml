@@ -43,6 +43,18 @@ limitations under the License.
         <skipPublishing>true</skipPublishing>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- Jersey's dependency injection brings in Javassist 3.20, whose description file Maven warns about.
+                 A current Javassist has a clean one. -->
+            <dependency>
+                <groupId>org.javassist</groupId>
+                <artifactId>javassist</artifactId>
+                <version>3.33.0-GA</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>io.github.lichtsinn</groupId>
