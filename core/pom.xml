@@ -28,7 +28,7 @@ limitations under the License.
 
     <artifactId>ageris-core</artifactId>
     <name>Ageris Core</name>
-    <description>Feature flag and runtime configuration store, loader and evaluation</description>
+    <description>Feature flags, runtime configuration and policies: store, loader and evaluation</description>
 
     <dependencies>
         <dependency>
@@ -74,4 +74,21 @@ limitations under the License.
             <artifactId>guava</artifactId>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <!-- The name of this jar for projects that use the Java module system. -->
+                            <Automatic-Module-Name>io.github.lichtsinn.ageris.core</Automatic-Module-Name>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

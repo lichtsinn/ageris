@@ -55,6 +55,7 @@ See [How updates are applied](README.md#how-updates-are-applied).
 
 ### Other changes
 
+* **Newer versions of the libraries Ageris depends on.** Ageris 0.2.0 depends on Jackson 2.22, slf4j 2.0 and commons-io 2.22, where Merci 0.1.2 depended on Jackson 2.9, slf4j 1.7 and commons-io 2.6. If your application pins older versions of these, Maven or Gradle may pick yours. slf4j 2.0 needs a logging backend made for it, for example Logback 1.3 or later, or Log4j's `log4j-slf4j2-impl`.
 * **Unchanged content is not loaded again.** Merci parsed the files and rebuilt every flag and config on each refresh, unless `setMaximumSkips` was called. Ageris skips a refresh whose content is the same as the content loaded last. A changed file is still picked up at the next refresh. To keep Merci's behavior, call `ageris.setMaximumSkips(0)`.
 * **A `null` value is rejected when the file is loaded.** In Merci, `"value": null` loaded and then threw `NullPointerException` on every evaluation. It now counts as an entry that cannot be loaded, so the change above applies to it.
 * **A fetch that returns nothing keeps the loaded configurations.** In Merci it cleared them, and callers got their defaults.
