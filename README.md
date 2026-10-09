@@ -28,14 +28,14 @@ Coming from Merci? See [Migrating from Merci to Ageris](MIGRATION.md).
 Ageris runs inside your application. It needs no server: it reads [configuration files](#central-configuration-files) that you keep wherever you like, and refreshes them in the background.
 
 * **[Feature flags](#toggling-features-with-ageris)** that turn code paths on and off without a deployment.
-* **[Runtime configuration](#using-ageris-for-runtime-configuration)** as typed Java objects, or as plain JSON.
+* **[Runtime configuration](#using-ageris-for-runtime-configuration)** as typed Java objects, called configs, or as plain JSON.
 * **[Policies](#policies)**: configs that have behavior and work with live objects of your application.
-* **Values that depend on context.** Any flag, config or policy can differ by environment, cluster, user or any other context you define.
+* **Values that depend on context.** Any feature flag, config or policy can differ by environment, cluster, user or any other context you define.
 * **[Safe updates](#how-updates-are-applied).** A file that cannot be loaded changes nothing: what was loaded before keeps being served.
 * **[A wait for the first load, and a status](#waiting-for-the-first-load-and-checking-status)** that tells whether a manager has loaded or is serving an older version, and why.
 * **[Listeners](#listening-for-updates)** that are called when content or status changes.
 * **[Reasons](#finding-out-why).** A lookup can say why it returned its value, and which context matched.
-* **[Test support](#testing-code-that-uses-ageris)** that sets flags, configs and policies from Java, with no files.
+* **[Test support](#testing-code-that-uses-ageris)** that sets feature flags, configs and policies from Java, with no files.
 
 ## Quick Start
 
@@ -43,7 +43,7 @@ This guide describes with examples how to use Ageris.
 
 ### Using Ageris in your Java<sup>(TM)</sup> application
 
-Ageris releases can be downloaded from the Maven central repository. Adding Ageris to a Java<sup>(TM)</sup> application just requires adding Ageris as a dependency to pom files.
+Ageris releases can be downloaded from the Maven central repository. Adding Ageris to a Java<sup>(TM)</sup> application just requires adding Ageris as a dependency. With Maven:
 
 ```xml
 <dependency>
@@ -51,6 +51,12 @@ Ageris releases can be downloaded from the Maven central repository. Adding Ager
     <artifactId>ageris-core</artifactId>
     <version>0.2.0</version>
 </dependency>
+```
+
+With Gradle:
+
+```groovy
+implementation 'io.github.lichtsinn:ageris-core:0.2.0'
 ```
 
 Ageris 0.2.0 requires Java 17 or later.
@@ -386,7 +392,7 @@ configManager.addListener(update ->
 
 * A listener is called on the first load and whenever the content of the manager's files changes. It is not called for unchanged content or for a refresh that failed.
 * It is called after the entries were replaced, so lookups made inside it return the new values.
-* It runs on the loader's thread, and the manager's next refresh waits for it. If you pass Ageris an executor with a single thread, the refreshes of the other managers wait as well. Keep it quick, and hand slow work to an executor of your own.
+* Keep a listener quick. It runs on the loader's thread, and the manager's next refresh starts only after it has returned: a refresh is never skipped, but a slow listener delays it, and with it the moment a changed file is picked up. If you pass Ageris an executor with a single thread, the refreshes of the other managers wait as well. Hand slow work to an executor of your own.
 * An exception thrown by a listener is logged. The update stays applied and the other listeners are still called.
 
 A listener that is a class can also hear when the status of the manager changes:

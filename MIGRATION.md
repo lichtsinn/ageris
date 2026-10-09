@@ -31,6 +31,8 @@ This guide covers moving from Merci 0.1.2 to Ageris 0.2.0. Configuration files n
    </dependency>
    ```
 
+   Merci's README showed its dependency with `<type>pom</type>`. Leave that line out: with it, Maven does not put the Ageris jar on the classpath.
+
 3. Rename the package in your imports from `com.medallia.merci` to `io.github.lichtsinn.ageris`.
 4. Rename the class `Merci` to `Ageris`. Its existing constructors and methods are unchanged.
 5. Read the behavior changes below, the first one in particular.
