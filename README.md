@@ -328,3 +328,25 @@ Things to know:
 * Bindings replace any values set with `setInjectableValues` on the `ObjectMapper` you pass to Ageris; bind those objects on `Ageris` instead.
 * A policy usually has no no-argument constructor, so `getConfig` throws `ConfigInstantiationException` if the file has no entry for it.
 * A getter for a binding makes the field behind it writable from the file, and would also be serialized. Put `@JsonIgnore` on such a getter, or give the method another name such as `pricing()`.
+
+### Testing code that uses Ageris
+
+`InMemoryAgeris` gives a test the same managers an application uses, with values set in Java. It needs no files, fetcher or loader.
+
+```Java
+InMemoryAgeris ageris = new InMemoryAgeris()
+        .setFlag("enable-international-welcome", true)
+        .setConfig(new DBConfig("db1.example.com"))
+        .setConfig(new DiscountPolicy(25, fakePricingService));
+
+WelcomeService service = new WelcomeService(ageris.featureFlagManager(), ageris.configManager());
+
+/* Change a value in the middle of a test. */
+ageris.setFlag("enable-international-welcome", false);
+```
+
+* A value applies to every configuration context.
+* A change takes effect at once, and the manager's listeners are called.
+* A policy is constructed by the test, with the objects it would be bound to or with stand-ins for them. No bindings are registered.
+* A flag or config that is not set behaves as in production: the flag is off, and the config comes from its no-argument constructor.
+* If the object's class is not the class your code asks for, as with a subclass or a mock, name the class: `setConfig(DBConfig.class, mockConfig)`.
