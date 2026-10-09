@@ -285,7 +285,7 @@ public record Limits(int maxConnections, List<String> hosts) {
 Limits limits = configManager.getConfig(Limits.class, context);
 ```
 
-A class with final fields that are set through its constructor, like `HelloWorldConfig` above, works the same way.
+A record needs no Jackson annotations: the names of its components are matched to the fields in the file. A class with final fields that are set through its constructor, like `HelloWorldConfig` above, works the same way, but needs `@JsonCreator` and `@JsonProperty` on that constructor.
 
 What Ageris guarantees:
 
