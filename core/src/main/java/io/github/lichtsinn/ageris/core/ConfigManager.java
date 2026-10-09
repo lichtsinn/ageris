@@ -44,6 +44,20 @@ public class ConfigManager implements ConfigurationManager<Object> {
     }
 
     /**
+     * @return status of this manager: whether it has loaded, and why its last refresh failed if it did.
+     */
+    public ConfigurationStatus getStatus() {
+        return store.getStatus();
+    }
+
+    /**
+     * @return the store of this manager, for the reader that refreshes it
+     */
+    ConfigurationStore<Object> store() {
+        return store;
+    }
+
+    /**
      * @return list of configuration names from configuration store.
      */
     public List<String> getConfigurationNames() {

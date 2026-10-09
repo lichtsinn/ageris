@@ -253,7 +253,8 @@ public final class Ageris {
                 metrics = new FeatureFlagMetrics();
             }
             FeatureFlagMapper featureFlagMapper = new FeatureFlagMapper(rootNode, skipNonInstantiable, objectMapper, metrics, bindings);
-            ConfigurationReader<Boolean> featureFlagReader = new ConfigurationReader<>(application, fileNames, fetcher, featureFlagMapper, featureFlagManager, newDigest(), metrics, maximumSkips);
+            ConfigurationReader<Boolean> featureFlagReader = new ConfigurationReader<>(application, fileNames, fetcher, featureFlagMapper, featureFlagManager, newDigest(), metrics,
+                    maximumSkips, featureFlagManager.store());
             readers.add(featureFlagReader);
             return featureFlagManager;
         }
@@ -306,7 +307,8 @@ public final class Ageris {
             }
             ConfigurationMapper<Object> configMapper = new ConfigurationMapper<>(rootNode, skipNonInstantiable, objectMapper, metrics, classFinder,
                     bindings);
-            ConfigurationReader<Object> configReader = new ConfigurationReader<>(application, fileNames, fetcher, configMapper, configManager, newDigest(), metrics, maximumSkips);
+            ConfigurationReader<Object> configReader = new ConfigurationReader<>(application, fileNames, fetcher, configMapper, configManager, newDigest(), metrics,
+                    maximumSkips, configManager.store());
             readers.add(configReader);
             return configManager;
         }
@@ -356,7 +358,8 @@ public final class Ageris {
                 metrics = new JsonConfigMetrics();
             }
             JsonConfigMapper configMapper = new JsonConfigMapper(rootNode, skipNonInstantiable, objectMapper, metrics, bindings);
-            ConfigurationReader<JsonNode> configReader = new ConfigurationReader<>(application, fileNames, fetcher, configMapper, configManager, newDigest(), metrics, maximumSkips);
+            ConfigurationReader<JsonNode> configReader = new ConfigurationReader<>(application, fileNames, fetcher, configMapper, configManager, newDigest(), metrics,
+                    maximumSkips, configManager.store());
             readers.add(configReader);
             return configManager;
         }

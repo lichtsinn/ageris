@@ -30,6 +30,9 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -47,6 +50,9 @@ public class ConfigurationReader<T> {
     private final ConfigurationMapper<T> parser;
     private final ConfigurationManager<T> manager;
 
+    /** Store of the manager, told the outcome of every refresh. Null when the manager is not one of Ageris's own. */
+    private final ConfigurationStore<T> store;
+
     /** Message digest. */
     private final MessageDigest digest;
 
@@ -62,6 +68,9 @@ public class ConfigurationReader<T> {
     /** Hash of configuration content from response of previous config request. */
     /* Volatile covers the reference only, which is all that is needed: the array is replaced, never modified. */
     private volatile byte[] previousHash;
+
+    /** Released by the first refresh that succeeds. */
+    private final CountDownLatch firstLoad = new CountDownLatch(1);
 
     /**
      * Creates configuration reader.
@@ -82,10 +91,35 @@ public class ConfigurationReader<T> {
                                MessageDigest digest,
                                UpdateConfigurationMetrics metrics,
                                final int maximumSkips) {
+        this(application, fileNames, fetcher, parser, manager, digest, metrics, maximumSkips, null);
+    }
+
+    /**
+     * Creates configuration reader that reports the outcome of every refresh to the store of its manager.
+     *
+     * @param application application
+     * @param fileNames names of textual configuration files
+     * @param fetcher fetcher for remote or local configuration files
+     * @param parser deserializer for textual configuration files
+     * @param manager configuration manager
+     * @param digest message digest
+     * @param metrics metrics
+     * @param maximumSkips maximum number of skips
+     * @param store store of the manager, or null if the manager is not one of Ageris's own
+     */
+    ConfigurationReader(String application, List<String> fileNames,
+                        ConfigurationFetcher fetcher,
+                        ConfigurationMapper<T> parser,
+                        ConfigurationManager<T> manager,
+                        MessageDigest digest,
+                        UpdateConfigurationMetrics metrics,
+                        final int maximumSkips,
+                        ConfigurationStore<T> store) {
         this.application = application;
         this.fetcher = fetcher;
         this.parser = parser;
         this.manager = manager;
+        this.store = store;
         this.fileNames = fileNames;
         this.digest = digest;
         this.metrics = metrics;
@@ -99,7 +133,37 @@ public class ConfigurationReader<T> {
      *
      * @throws IOException in case of a failure
      */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void execute() throws IOException {
+        try {
+            refresh();
+            firstLoad.countDown();
+        } catch (IOException | RuntimeException exception) {
+            if (store != null) {
+                store.failed(exception);
+            }
+            throw exception;
+        }
+    }
+
+    /**
+     * Waits until the first refresh has succeeded.
+     *
+     * @param timeout maximum time to wait
+     * @param unit unit of the timeout
+     * @return true if a refresh has succeeded, false if the timeout passed first
+     * @throws InterruptedException if the waiting thread is interrupted
+     */
+    boolean awaitFirstLoad(long timeout, TimeUnit unit) throws InterruptedException {
+        return firstLoad.await(timeout, unit);
+    }
+
+    /**
+     * Fetches, parses and stores the configurations.
+     *
+     * @throws IOException in case of a failure
+     */
+    private void refresh() throws IOException {
         Map<String, String> contents = fetcher.fetch(fileNames, application);
         if (contents.isEmpty() && !fileNames.isEmpty()) {
             /* Storing nothing would drop every configuration and silently fall back to the defaults that
@@ -121,6 +185,9 @@ public class ConfigurationReader<T> {
         byte[] hash = digest.digest();
         if (skipsLeft.getAndDecrement() > 0 && Arrays.equals(previousHash, hash)) {
             metrics.incrementSameContentsSkips();
+            if (store != null) {
+                store.unchanged();
+            }
         } else {
             metrics.incrementNewContentsUpdates();
             updateConfigurationManager(contents);
@@ -136,20 +203,22 @@ public class ConfigurationReader<T> {
      */
     private void updateConfigurationManager(Map<String, String> contents) throws IOException {
         int numConfigurations = 0;
-        int numContentFailures = 0;
+        /* Sorted by file name, so the message and the reported cause do not depend on the order of the fetch. */
+        Map<String, IOException> failures = new TreeMap<>();
         Map<String, Configuration<T>> configurationCache = new LinkedHashMap<> ();
-        for (String content : contents.values()) {
+        for (Map.Entry<String, String> content : contents.entrySet()) {
             try {
-                Map<String, Configuration<T>> configurations = parser.readValue(content);
+                Map<String, Configuration<T>> configurations = parser.readValue(content.getValue());
                 numConfigurations += configurations.size();
                 configurationCache.putAll(configurations);
             } catch (IOException exception) {
-                numContentFailures++;
+                failures.put(content.getKey(), exception);
             }
         }
-        metrics.incrementContentFailures(numContentFailures);
-        if (numContentFailures > 0) {
-            throw new IOException("Bad configuration content.");
+        metrics.incrementContentFailures(failures.size());
+        if (!failures.isEmpty()) {
+            IOException first = failures.values().iterator().next();
+            throw new IOException("Cannot load " + failures.keySet() + " of application " + application + ": " + first.getMessage(), first);
         }
         metrics.incrementNameDuplicates(numConfigurations - configurationCache.size());
         metrics.incrementUpdates(configurationCache.size());

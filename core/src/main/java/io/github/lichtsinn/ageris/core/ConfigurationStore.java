@@ -17,6 +17,8 @@
  */
 package io.github.lichtsinn.ageris.core;
 
+import io.github.lichtsinn.ageris.core.ConfigurationStatus.State;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -35,9 +37,14 @@ final class ConfigurationStore<T> {
 
     private final AtomicReference<Map<String, Configuration<T>>> configurationStore;
 
+    /* One immutable object replaced in a single step, so a caller never sees the state of one refresh with the
+     * failure of another. */
+    private final AtomicReference<ConfigurationStatus> status;
+
     /** Creates an empty store. */
     ConfigurationStore() {
         configurationStore = new AtomicReference<>(new HashMap<>());
+        status = new AtomicReference<>(new ConfigurationStatus(State.NOT_LOADED, null));
     }
 
     /**
@@ -49,6 +56,31 @@ final class ConfigurationStore<T> {
         /* Request threads read this map while the loader thread replaces it, so the store must never hold a
          * map the caller can still mutate. Copying also keeps the order the configurations arrived in. */
         configurationStore.set(Collections.unmodifiableMap(new LinkedHashMap<>(configurations)));
+        status.set(new ConfigurationStatus(State.LOADED, null));
+    }
+
+    /**
+     * Records a refresh that found the content unchanged, so that the stored configurations are current.
+     */
+    void unchanged() {
+        status.set(new ConfigurationStatus(State.LOADED, null));
+    }
+
+    /**
+     * Records a failed refresh. The stored configurations are kept.
+     *
+     * @param failure exception that ended the refresh
+     */
+    void failed(Exception failure) {
+        status.updateAndGet(current -> new ConfigurationStatus(
+                current.getState() == State.NOT_LOADED ? State.NOT_LOADED : State.STALE, failure));
+    }
+
+    /**
+     * @return status of this store
+     */
+    ConfigurationStatus getStatus() {
+        return status.get();
     }
 
     /**

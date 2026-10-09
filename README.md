@@ -151,7 +151,33 @@ Each manager refreshes on its own. Its files are fetched and its entries are rep
 * If a single entry cannot be loaded, that manager keeps all of its entries as they were, until the file is fixed. Other managers still update.
 * Call `ageris.skipNonInstantiableConfiguration()` before building the managers to skip such an entry and update the rest instead. The skipped entry is then no longer served, so callers get their defaults, even if an earlier version of it had loaded. It is not tried again until a file changes.
 
-Failed updates are logged and counted in the loader metrics.
+Failed updates are logged, counted in the loader metrics, and shown in the manager's status.
+
+#### Waiting for the first load and checking status
+
+The loader starts in the background, so lookups made before the first load return defaults. To wait for it:
+
+```Java
+ConfigurationLoader loader = ageris.createAndStartLoader(Duration.ofSeconds(180));
+if (!loader.awaitFirstLoad(Duration.ofSeconds(10))) {
+    /* Not every manager has loaded. Exit, or continue on defaults. */
+}
+```
+
+Each manager reports its status:
+
+```Java
+ConfigurationStatus status = configManager.getStatus();
+if (status.getState() == ConfigurationStatus.State.STALE) {
+    log.warn("Configs are stale", status.getFailure());
+}
+```
+
+* `NOT_LOADED`: no load has succeeded, and lookups return defaults.
+* `LOADED`: the last refresh succeeded.
+* `STALE`: the last refresh failed, and the manager serves what it loaded before.
+
+`getFailure()` returns the exception of the last failed refresh, or `null`.
 
 ### Toggling Features with Ageris
 

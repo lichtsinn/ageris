@@ -96,6 +96,37 @@ public final class ConfigurationLoader {
     }
 
     /**
+     * Waits until every configuration manager of this loader has loaded once. Does not start the loader.
+     *
+     * @param timeout maximum time to wait, for all managers together
+     * @return true if every manager has loaded, false if the timeout passed first or the waiting thread was interrupted
+     */
+    public boolean awaitFirstLoad(Duration timeout) {
+        long deadline = System.nanoTime() + nanosOf(timeout);
+        try {
+            for (ConfigurationReader configurationReader : configurationReaders) {
+                /* The difference stays correct even if the deadline wrapped around, as System.nanoTime() documents. */
+                if (!configurationReader.awaitFirstLoad(deadline - System.nanoTime(), TimeUnit.NANOSECONDS)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    private static long nanosOf(Duration timeout) {
+        try {
+            return timeout.toNanos();
+        } catch (ArithmeticException exception) {
+            /* Longer than a long of nanoseconds can hold, about 292 years: wait as long as possible. */
+            return Long.MAX_VALUE;
+        }
+    }
+
+    /**
      * Stop scheduled periodic refresh of configurations.
      */
     public void shutdown() {

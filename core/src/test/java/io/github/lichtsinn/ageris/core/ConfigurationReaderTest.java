@@ -284,6 +284,27 @@ public class ConfigurationReaderTest {
         Assert.assertEquals(1, featureFlagMetrics.getFeatureFlagUpdates());
     }
 
+    /**
+     * Tests that the failure of a refresh names every file that could not be loaded and keeps the first cause.
+     */
+    @Test
+    public void testFailureNamesEveryFileThatCouldNotBeLoaded() {
+        ConfigurationFetcher configurationFetcher = (fileNames, application) ->
+                ImmutableMap.of(SECOND_FILE, BAD_SECOND_JSON, FIRST_FILE, "not json");
+        ConfigurationMapper<Boolean> featureFlagMapper = new FeatureFlagMapper("feature-flags", true, objectMapper, featureFlagMetrics);
+        ConfigurationReader<Boolean> configurationReader = new ConfigurationReader<>(APPLICATION, ImmutableList.of(FIRST_FILE, SECOND_FILE),
+                configurationFetcher, featureFlagMapper, featureFlagManager, digest, featureFlagMetrics, 0);
+
+        try {
+            configurationReader.execute();
+            Assert.fail("Expected the refresh to fail");
+        } catch (IOException exception) {
+            Assert.assertTrue(exception.getMessage(),
+                    exception.getMessage().startsWith("Cannot load [" + FIRST_FILE + ", " + SECOND_FILE + "] of application " + APPLICATION + ": "));
+            Assert.assertNotNull(exception.getCause());
+        }
+    }
+
     private static MessageDigest createMessageDigest() {
         try {
             return MessageDigest.getInstance("SHA-256");
