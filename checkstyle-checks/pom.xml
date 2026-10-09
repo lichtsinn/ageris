@@ -30,6 +30,14 @@ limitations under the License.
     <name>Ageris Checkstyle Checks</name>
     <description>Custom Checkstyle rule requiring nullability annotations</description>
 
+    <properties>
+        <!-- Not published. This is a helper for the build of Ageris itself, and nothing outside it needs it. -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <!-- central-publishing-maven-plugin replaces the deploy plugin under -Prelease and does not read
+             maven.deploy.skip, so it needs telling separately. Both are required. -->
+        <skipPublishing>true</skipPublishing>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.puppycrawl.tools</groupId>

@@ -47,10 +47,6 @@ limitations under the License.
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-        </dependency>
 
         <!-- YAML configuration files are exercised by the tests; core itself only needs databind. -->
         <dependency>
