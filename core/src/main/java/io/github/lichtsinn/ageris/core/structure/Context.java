@@ -22,6 +22,11 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.github.lichtsinn.ageris.core.ConfigurationContext;
+import io.github.lichtsinn.ageris.core.Evaluation;
+
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * A configuration context is a sub-tree in the definition of a configuration, that defines a (default) value object of type T
@@ -94,5 +99,28 @@ public class Context<T> {
             }
         }
         return value;
+    }
+
+    /**
+     * Returns value object based on provided runtime context, together with the modifiers that matched. The value is
+     * the one {@link #getValue(ConfigurationContext)} returns.
+     *
+     * @param runtimeContext context, provided at runtime
+     * @return evaluation with the value object based on runtime context
+     */
+    public Evaluation<T> evaluate(ConfigurationContext runtimeContext) {
+        if (modifiers == null) {
+            return new Evaluation<>(value, Evaluation.Reason.STATIC, Collections.emptyMap());
+        }
+        Map<String, String> matches = new LinkedHashMap<>();
+        Context<T> deepest = this;
+        while (deepest.modifiers != null) {
+            Context<T> nested = deepest.modifiers.match(runtimeContext, matches);
+            if (nested == null) {
+                break;
+            }
+            deepest = nested;
+        }
+        return new Evaluation<>(deepest.value, matches.isEmpty() ? Evaluation.Reason.DEFAULT : Evaluation.Reason.MATCH, matches);
     }
 }

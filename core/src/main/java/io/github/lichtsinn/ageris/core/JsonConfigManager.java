@@ -118,4 +118,16 @@ public class JsonConfigManager implements ConfigurationManager<JsonNode> {
     public JsonNode getConfig(String name, ConfigurationContext runtimeContext) {
         return store.getValue(name, runtimeContext, emptyConfiguration);
     }
+
+    /**
+     * Evaluates the JsonNode config with given name for provided runtime configuration context, and says why it has
+     * that value. The value is the one {@link #getConfig(String, ConfigurationContext)} returns.
+     *
+     * @param name name of configuration
+     * @param runtimeContext context to be used for evaluation of JsonNode configuration
+     * @return evaluation of the JsonNode configuration
+     */
+    public Evaluation<JsonNode> evaluate(String name, ConfigurationContext runtimeContext) {
+        return store.evaluate(name, runtimeContext, emptyConfiguration);
+    }
 }

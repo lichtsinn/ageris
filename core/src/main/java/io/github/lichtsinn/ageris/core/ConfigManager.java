@@ -21,6 +21,7 @@ import io.github.lichtsinn.ageris.core.exception.ConfigInstantiationException;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -125,6 +126,28 @@ public class ConfigManager implements ConfigurationManager<Object> {
                 // try to return new config object based on default constructor
             }
         }
+        return newInstance(clazz);
+    }
+
+    /**
+     * Evaluates the config of class T for given request (runtime) config context, and says why it has that value. The
+     * value is the one {@link #getConfig(Class, ConfigurationContext)} returns.
+     *
+     * @param clazz Java class of config to be evaluated
+     * @param runtimeContext context from request to be used for evaluation of config
+     * @param <T> class of config
+     * @return evaluation of the config; not found if the config store holds no config of that class
+     * @throws ConfigInstantiationException in case of instantiation problems
+     */
+    public <T> Evaluation<T> evaluate(Class<T> clazz, ConfigurationContext runtimeContext) throws ConfigInstantiationException {
+        Evaluation<Object> evaluation = store.evaluate(clazz.getName(), runtimeContext, null);
+        if (clazz.isInstance(evaluation.getValue())) {
+            return new Evaluation<>(clazz.cast(evaluation.getValue()), evaluation.getReason(), evaluation.getMatches());
+        }
+        return new Evaluation<>(newInstance(clazz), Evaluation.Reason.NOT_FOUND, Collections.emptyMap());
+    }
+
+    private static <T> T newInstance(Class<T> clazz) throws ConfigInstantiationException {
         try {
             /* Class.newInstance() is deprecated and propagates any exception the constructor throws
              * undeclared, including checked ones. Going through the constructor wraps those in

@@ -18,6 +18,7 @@
 package io.github.lichtsinn.ageris.core;
 
 import io.github.lichtsinn.ageris.core.ConfigurationStatus.State;
+import io.github.lichtsinn.ageris.core.Evaluation.Reason;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -192,5 +193,22 @@ final class ConfigurationStore<T> {
             return configuration.getValue(runtimeContext);
         }
         return defaultValue;
+    }
+
+    /**
+     * Evaluates the configuration with provided name for given runtime context. The value is the one
+     * {@link #getValue(String, ConfigurationContext, Object)} returns.
+     *
+     * @param name name of configuration to be evaluated
+     * @param runtimeContext context at runtime
+     * @param fallback value of the evaluation, if no configuration with provided name found
+     * @return evaluation of the configuration
+     */
+    Evaluation<T> evaluate(String name, ConfigurationContext runtimeContext, T fallback) {
+        Configuration<T> configuration = configurationStore.get().get(name);
+        if (configuration != null) {
+            return configuration.evaluate(runtimeContext);
+        }
+        return new Evaluation<>(fallback, Reason.NOT_FOUND, Collections.emptyMap());
     }
 }

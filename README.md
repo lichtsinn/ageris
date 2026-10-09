@@ -219,6 +219,24 @@ public class HelloWorld {
     }
 ```
 
+#### Finding out why
+
+`isActive` returns only the answer. `evaluate` returns the answer together with the reason:
+
+```Java
+Evaluation<Boolean> evaluation = featureFlagManager.evaluate("enable-international-welcome", context);
+evaluation.getValue();     // false
+evaluation.getReason();    // MATCH
+evaluation.getMatches();   // {environment=qa}
+```
+
+* `NOT_FOUND`: no feature flag with that name is defined. The value is `false`, or the default the caller passed.
+* `STATIC`: the feature flag has no modifiers, so it has the same value for every context.
+* `DEFAULT`: the feature flag has modifiers, and none matched the context. The value is its base value.
+* `MATCH`: at least one modifier matched. `getMatches()` lists the context types and values that matched, outermost first.
+
+The config manager and the JSON config manager have `evaluate` as well, next to `getConfig`.
+
 ### Using Ageris for Runtime Configuration
 
 Runtime configs are managed by a registered instance of Ageris's config manager class. Using config objects of type HelloWorldConfig allows an external list of supported languages to be passed in at runtime.

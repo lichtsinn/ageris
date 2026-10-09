@@ -127,4 +127,30 @@ public class FeatureFlagManager implements ConfigurationManager<Boolean> {
     public boolean isActive(String name, ConfigurationContext runtimeContext, boolean defaultValue) {
         return store.getValue(name, runtimeContext, Boolean.valueOf(defaultValue)).booleanValue();
     }
+
+    /**
+     * Evaluates the feature flag with given name (case-sensitive) for provided runtime configuration context, and
+     * says why it is active or not. The value is the one {@link #isActive(String, ConfigurationContext)} returns.
+     *
+     * @param name name of feature flag to be evaluated, case-sensitive
+     * @param runtimeContext configuration context from request to be used for evaluation of feature flag
+     * @return evaluation of the feature flag
+     */
+    public Evaluation<Boolean> evaluate(String name, ConfigurationContext runtimeContext) {
+        return evaluate(name, runtimeContext, false);
+    }
+
+    /**
+     * Evaluates the feature flag with given name (case-sensitive) for provided runtime configuration context, and
+     * says why it is active or not. The value is the one {@link #isActive(String, ConfigurationContext, boolean)}
+     * returns.
+     *
+     * @param name name of feature flag to be evaluated, case-sensitive
+     * @param runtimeContext configuration context from request to be used for evaluation of feature flag
+     * @param defaultValue value of the evaluation, if feature flag manager does not contain feature flag
+     * @return evaluation of the feature flag
+     */
+    public Evaluation<Boolean> evaluate(String name, ConfigurationContext runtimeContext, boolean defaultValue) {
+        return store.evaluate(name, runtimeContext, Boolean.valueOf(defaultValue));
+    }
 }

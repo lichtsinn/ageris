@@ -94,4 +94,23 @@ public class Modifiers<T> {
         }
         return context.getValue(runtimeContext);
     }
+
+    /**
+     * Returns the nested context for a given (runtime) context and records the match, or returns null if none found.
+     *
+     * @param runtimeContext configuration context at runtime
+     * @param matches context type to context value of the modifiers that matched so far; a match is added to it
+     * @return nested context for the given configuration context, null if none found
+     */
+    Context<T> match(ConfigurationContext runtimeContext, Map<String, String> matches) {
+        String runtimeContextValue = runtimeContext.get(type);
+        if (runtimeContextValue == null) {
+            return null;
+        }
+        Context<T> context = contexts.get(runtimeContextValue);
+        if (context != null) {
+            matches.put(type, runtimeContextValue);
+        }
+        return context;
+    }
 }

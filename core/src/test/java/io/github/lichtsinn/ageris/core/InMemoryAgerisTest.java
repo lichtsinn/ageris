@@ -275,6 +275,14 @@ public class InMemoryAgerisTest {
     }
 
     @Test
+    public void testValueThatWasSetIsStaticAndOneThatWasNotIsNotFound() {
+        ageris.setFlag("enable-checkout", true);
+
+        Assert.assertEquals(Evaluation.Reason.STATIC, ageris.featureFlagManager().evaluate("enable-checkout", qa).getReason());
+        Assert.assertEquals(Evaluation.Reason.NOT_FOUND, ageris.featureFlagManager().evaluate("enable-search", qa).getReason());
+    }
+
+    @Test
     public void testManagersAreLoadedFromTheStart() {
         Assert.assertEquals(State.LOADED, ageris.featureFlagManager().getStatus().getState());
         Assert.assertEquals(State.LOADED, ageris.configManager().getStatus().getState());

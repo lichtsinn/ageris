@@ -63,4 +63,14 @@ public final class Configuration<T> {
     T getValue(ConfigurationContext runtimeContext) {
         return context.getValue(runtimeContext);
     }
+
+    /**
+     * Returns the value of this configuration for a given (runtime) context, together with the modifiers that matched.
+     *
+     * @param runtimeContext configuration context at runtime
+     * @return evaluation of this configuration
+     */
+    Evaluation<T> evaluate(ConfigurationContext runtimeContext) {
+        return context.evaluate(runtimeContext);
+    }
 }
