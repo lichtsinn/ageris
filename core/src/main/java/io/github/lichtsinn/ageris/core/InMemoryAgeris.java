@@ -34,7 +34,7 @@ import java.util.Map;
  * This class is for tests. Nothing refreshes its managers. Set values through this class only: configurations
  * passed to {@code updateConfigurations} of one of its managers are replaced by the next value set here.
  *
- * Listeners are called while this object is locked. A listener may set another value itself, but it must not
+ * Listeners are called while a value is being set. A listener may set another value itself, but it must not
  * wait for another thread that sets a value on this or another {@code InMemoryAgeris}.
  */
 public final class InMemoryAgeris {
@@ -47,6 +47,9 @@ public final class InMemoryAgeris {
     private final Map<String, Boolean> flags = new LinkedHashMap<>();
     private final Map<String, Object> configs = new LinkedHashMap<>();
     private final Map<String, JsonNode> jsonConfigs = new LinkedHashMap<>();
+
+    /* Private, so that code outside this class cannot hold the lock that guards the three maps. */
+    private final Object lock = new Object();
 
     /**
      * Creates managers that count as loaded and hold no feature flags or configs.
@@ -85,10 +88,12 @@ public final class InMemoryAgeris {
      * @param active true if the feature flag is on
      * @return this
      */
-    public synchronized InMemoryAgeris setFlag(String name, boolean active) {
-        requireNonNull(name, "name");
-        flags.put(name, active);
-        featureFlagManager.updateConfigurations(configurations(flags));
+    public InMemoryAgeris setFlag(String name, boolean active) {
+        synchronized (lock) {
+            requireNonNull(name, "name");
+            flags.put(name, active);
+            featureFlagManager.updateConfigurations(configurations(flags));
+        }
         return this;
     }
 
@@ -98,10 +103,12 @@ public final class InMemoryAgeris {
      * @param name name of the feature flag
      * @return this
      */
-    public synchronized InMemoryAgeris removeFlag(String name) {
-        requireNonNull(name, "name");
-        if (flags.remove(name) != null) {
-            featureFlagManager.updateConfigurations(configurations(flags));
+    public InMemoryAgeris removeFlag(String name) {
+        synchronized (lock) {
+            requireNonNull(name, "name");
+            if (flags.remove(name) != null) {
+                featureFlagManager.updateConfigurations(configurations(flags));
+            }
         }
         return this;
     }
@@ -152,10 +159,12 @@ public final class InMemoryAgeris {
      * @param type class the config is looked up with
      * @return this
      */
-    public synchronized InMemoryAgeris removeConfig(Class<?> type) {
-        requireNonNull(type, "type");
-        if (configs.remove(type.getName()) != null) {
-            configManager.updateConfigurations(configurations(configs));
+    public InMemoryAgeris removeConfig(Class<?> type) {
+        synchronized (lock) {
+            requireNonNull(type, "type");
+            if (configs.remove(type.getName()) != null) {
+                configManager.updateConfigurations(configurations(configs));
+            }
         }
         return this;
     }
@@ -167,11 +176,13 @@ public final class InMemoryAgeris {
      * @param config the JSON config
      * @return this
      */
-    public synchronized InMemoryAgeris setJsonConfig(String name, JsonNode config) {
-        requireNonNull(name, "name");
-        requireNonNull(config, "config");
-        jsonConfigs.put(name, config);
-        jsonConfigManager.updateConfigurations(configurations(jsonConfigs));
+    public InMemoryAgeris setJsonConfig(String name, JsonNode config) {
+        synchronized (lock) {
+            requireNonNull(name, "name");
+            requireNonNull(config, "config");
+            jsonConfigs.put(name, config);
+            jsonConfigManager.updateConfigurations(configurations(jsonConfigs));
+        }
         return this;
     }
 
@@ -181,17 +192,21 @@ public final class InMemoryAgeris {
      * @param name name of the JSON config
      * @return this
      */
-    public synchronized InMemoryAgeris removeJsonConfig(String name) {
-        requireNonNull(name, "name");
-        if (jsonConfigs.remove(name) != null) {
-            jsonConfigManager.updateConfigurations(configurations(jsonConfigs));
+    public InMemoryAgeris removeJsonConfig(String name) {
+        synchronized (lock) {
+            requireNonNull(name, "name");
+            if (jsonConfigs.remove(name) != null) {
+                jsonConfigManager.updateConfigurations(configurations(jsonConfigs));
+            }
         }
         return this;
     }
 
-    private synchronized InMemoryAgeris putConfig(Class<?> type, Object config) {
-        configs.put(type.getName(), config);
-        configManager.updateConfigurations(configurations(configs));
+    private InMemoryAgeris putConfig(Class<?> type, Object config) {
+        synchronized (lock) {
+            configs.put(type.getName(), config);
+            configManager.updateConfigurations(configurations(configs));
+        }
         return this;
     }
 

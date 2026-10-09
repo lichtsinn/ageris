@@ -46,7 +46,7 @@ import java.util.Map;
  *
  * @param <T> type of context
  */
-public class Modifiers<T> {
+public final class Modifiers<T> {
 
     /** Type of context values to override default value from parent level in configuration hierarchy. */
     @JsonProperty("type")

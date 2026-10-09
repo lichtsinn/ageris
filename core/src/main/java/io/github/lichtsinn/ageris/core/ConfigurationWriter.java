@@ -52,8 +52,11 @@ public class ConfigurationWriter<T>  {
      * @param configurations map with configurations
      * @throws IOException in case of failure
      */
+    @SuppressWarnings("PMD.CloseResource")
     public String writeValueAsString(Map<String, Configuration<T>> configurations) throws IOException {
         Writer stringWriter = new StringWriter();
+        /* Flushed, not closed: the generator writes into memory and holds nothing to release, and a YAML generator
+         * that is closed adds to the output. */
         JsonGenerator generator = mapper.getFactory().createGenerator(stringWriter);
         generator.useDefaultPrettyPrinter();
         generator.writeStartObject();

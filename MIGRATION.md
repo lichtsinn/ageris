@@ -64,5 +64,6 @@ See [How updates are applied](README.md#how-updates-are-applied).
 * **A failed refresh no longer ends refreshing.** In Merci, a `RuntimeException` during a refresh canceled every later refresh of that manager for the lifetime of the process.
 * **Refresh intervals below one second work.** Merci truncated the interval to whole seconds. An interval below one millisecond is rejected.
 * **`ConfigManager.getConfig` reports a failing no-argument constructor as `ConfigInstantiationException`.** In Merci, whatever the constructor threw escaped as is.
+* **`Context` and `Modifiers` are final.** They can no longer be subclassed.
 * **`AbstractConfigurationManager` is removed.** The three managers implement `ConfigurationManager` directly, with the same public methods.
 * **Injectable values set on your own `ObjectMapper` are not used.** Ageris works on a private copy of the mapper. If a config class uses `@JacksonInject`, register the object with `ageris.bind(...)` instead, and see [Policies](README.md#policies) for the rules such a class must follow.

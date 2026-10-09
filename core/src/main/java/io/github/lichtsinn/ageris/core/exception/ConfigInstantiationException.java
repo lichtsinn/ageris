@@ -27,6 +27,8 @@ import io.github.lichtsinn.ageris.core.ConfigurationContext;
  */
 public class ConfigInstantiationException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     /**
      * Creates exception with cause.
      *

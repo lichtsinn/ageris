@@ -24,6 +24,8 @@ package io.github.lichtsinn.ageris.web.exception;
  */
 public class TemporaryErrorException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     /**
      * Creates exception.
      *

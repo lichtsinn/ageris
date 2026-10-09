@@ -129,6 +129,7 @@ public class AgerisRunner {
      * @param configManager manager (store) for JSON configs
      * @return new Jetty server
      */
+    @SuppressWarnings("PMD.CloseResource") // The server owns the connector and closes it when it stops.
     private Server createServer(FeatureFlagManager featureFlagManager, JsonConfigManager configManager) {
         Server jettyServer = new Server();
         ServerConnector serverConnector = new ServerConnector(jettyServer);

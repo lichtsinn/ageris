@@ -28,6 +28,8 @@ package io.github.lichtsinn.ageris.web.exception;
  */
 public class InvalidInputException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     /** Error Type to keep the state of the Exception. */
     private final ErrorType type;
 

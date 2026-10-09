@@ -36,6 +36,10 @@ limitations under the License.
         <!-- central-publishing-maven-plugin replaces the deploy plugin under -Prelease and does not read
              maven.deploy.skip, so it needs telling separately. Both are required. -->
         <skipPublishing>true</skipPublishing>
+        <!-- The Checkstyle rule in this module was taken over as it is and is not used by the build, so PMD and
+             SpotBugs do not hold it to the rules of the library. -->
+        <pmd.skip>true</pmd.skip>
+        <spotbugs.skip>true</spotbugs.skip>
     </properties>
 
     <dependencies>

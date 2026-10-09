@@ -67,6 +67,7 @@ public class ConfigurationReader<T> {
 
     /** Hash of configuration content from response of previous config request. */
     /* Volatile covers the reference only, which is all that is needed: the array is replaced, never modified. */
+    @SuppressWarnings("PMD.AvoidUsingVolatile")
     private volatile byte[] previousHash;
 
     /** Released by the first refresh that succeeds. */
@@ -206,6 +207,7 @@ public class ConfigurationReader<T> {
      * @param changed true if the content differs from the content loaded last
      * @throws IOException in case of a problem parsing configuration content
      */
+    @SuppressWarnings("PMD.NcssCount")
     private void updateConfigurationManager(Map<String, String> contents, boolean changed) throws IOException {
         int numConfigurations = 0;
         /* Sorted by file name, so the message and the reported cause do not depend on the order of the fetch. */

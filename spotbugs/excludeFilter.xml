@@ -17,9 +17,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <FindBugsFilter>
-    <!-- Collaborators handed to a constructor are meant to be shared with the caller: the ObjectMapper,
+    <!-- Objects handed to a constructor are meant to be shared with the caller: the ObjectMapper,
          executor service, fetcher and metrics objects are injected, not copied. -->
     <Match>
         <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <!-- Objects handed out by a getter are meant to be shared too: the managers of InMemoryAgeris, the failure
+         of a status, and maps that are already unmodifiable. -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+    <!-- The array holding the hash of the content loaded last is replaced, never modified, so a volatile
+         reference to it is all that is needed. -->
+    <Match>
+        <Class name="io.github.lichtsinn.ageris.core.ConfigurationReader"/>
+        <Bug pattern="VO_VOLATILE_REFERENCE_TO_ARRAY"/>
     </Match>
 </FindBugsFilter>

@@ -32,7 +32,7 @@ public enum ErrorTypeModel {
      * Constructor.
      * @param value value of the error type.
      */
-    private ErrorTypeModel(String value) {
+    ErrorTypeModel(String value) {
         this.value = value;
     }
 

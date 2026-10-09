@@ -55,7 +55,7 @@ import java.util.Map;
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonIgnoreProperties({"comment"})
-public class Context<T> {
+public final class Context<T> {
 
     /** Mandatory, default value object. */
     @JsonProperty("value")

@@ -36,7 +36,6 @@ limitations under the License.
     <rule ref="category/java/bestpractices.xml/ConstantsInInterface"/>
     <rule ref="category/java/bestpractices.xml/DefaultLabelNotLastInSwitchStmt"/>
     <rule ref="category/java/bestpractices.xml/ForLoopCanBeForeach"/>
-    <rule ref="category/java/bestpractices.xml/GuardLogStatement"/>
     <rule ref="category/java/bestpractices.xml/LooseCoupling"/>
     <rule ref="category/java/bestpractices.xml/MethodReturnsInternalArray"/>
     <rule ref="category/java/bestpractices.xml/OneDeclarationPerLine"/>
@@ -61,7 +60,6 @@ limitations under the License.
     <rule ref="category/java/bestpractices.xml/UseVarargs"/>
 
     <rule ref="category/java/codestyle.xml/AbstractNaming"/>
-    <rule ref="category/java/codestyle.xml/AtLeastOneConstructor"/>
     <rule ref="category/java/codestyle.xml/AvoidDollarSigns"/>
     <rule ref="category/java/codestyle.xml/AvoidFinalLocalVariable"/>
     <rule ref="category/java/codestyle.xml/AvoidPrefixingMethodParameters"/>
@@ -144,7 +142,6 @@ limitations under the License.
     <rule ref="category/java/design.xml/SingularField"/>
     <rule ref="category/java/design.xml/SwitchDensity"/>
     <rule ref="category/java/design.xml/TooManyFields"/>
-    <rule ref="category/java/design.xml/TooManyMethods"/>
     <rule ref="category/java/design.xml/UselessOverridingMethod"/>
     <rule ref="category/java/design.xml/UseObjectForClearerAPI"/>
 
@@ -175,10 +172,7 @@ limitations under the License.
     <rule ref="category/java/errorprone.xml/AvoidCatchingNPE"/>
     <rule ref="category/java/errorprone.xml/AvoidCatchingThrowable"/>
     <rule ref="category/java/errorprone.xml/AvoidDecimalLiteralsInBigDecimalConstructor"/>
-    <rule ref="category/java/errorprone.xml/AvoidDuplicateLiterals"/>
     <rule ref="category/java/errorprone.xml/AvoidEnumAsIdentifier"/>
-    <rule ref="category/java/errorprone.xml/AvoidFieldNameMatchingMethodName"/>
-    <rule ref="category/java/errorprone.xml/AvoidFieldNameMatchingTypeName"/>
     <rule ref="category/java/errorprone.xml/AvoidInstanceofChecksInCatchClause"/>
     <rule ref="category/java/errorprone.xml/AvoidLiteralsInIfCondition"/>
     <rule ref="category/java/errorprone.xml/AvoidLosingExceptionInformation"/>
@@ -263,7 +257,6 @@ limitations under the License.
     <rule ref="category/java/multithreading.xml/AvoidSynchronizedAtMethodLevel"/>
     <rule ref="category/java/multithreading.xml/AvoidThreadGroup"/>
     <rule ref="category/java/multithreading.xml/AvoidUsingVolatile"/>
-    <rule ref="category/java/multithreading.xml/DoNotUseThreads"/>
     <rule ref="category/java/multithreading.xml/DontCallThreadRun"/>
     <rule ref="category/java/multithreading.xml/DoubleCheckedLocking"/>
     <rule ref="category/java/multithreading.xml/NonThreadSafeSingleton"/>

@@ -52,7 +52,10 @@ import java.util.Map;
  */
 final class BindingGuard extends BeanDeserializerModifier {
 
-    private final Logger log = LoggerFactory.getLogger(BindingGuard.class);
+    private static final long serialVersionUID = 1L;
+
+    /* Static, because Jackson's modifiers are serializable and a logger is not. */
+    private static final Logger LOG = LoggerFactory.getLogger(BindingGuard.class);
 
     /**
      * Installs the guard on a mapper. The mapper is changed, so this must be a private copy, never the
@@ -66,6 +69,7 @@ final class BindingGuard extends BeanDeserializerModifier {
     }
 
     @Override
+    @SuppressWarnings("PMD.CyclomaticComplexity")
     public List<BeanPropertyDefinition> updateProperties(DeserializationConfig config,
                                                          BeanDescription beanDescription,
                                                          List<BeanPropertyDefinition> propertyDefinitions) {
@@ -128,7 +132,7 @@ final class BindingGuard extends BeanDeserializerModifier {
     /* A refused class is a mistake in the class, not in the file, and in skip mode the caller only counts
      * it, so it is reported here where it cannot be overlooked. */
     private IllegalArgumentException refusal(String message) {
-        log.error(message);
+        LOG.error(message);
         return new IllegalArgumentException(message);
     }
 
