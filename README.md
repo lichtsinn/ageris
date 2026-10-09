@@ -23,6 +23,20 @@ It is not affiliated with or endorsed by Medallia. See [NOTICE](NOTICE).
 
 Coming from Merci? See [Migrating from Merci to Ageris](MIGRATION.md).
 
+## Features
+
+Ageris runs inside your application. It needs no server: it reads [configuration files](#central-configuration-files) that you keep wherever you like, and refreshes them in the background.
+
+* **[Feature flags](#toggling-features-with-ageris)** that turn code paths on and off without a deployment.
+* **[Runtime configuration](#using-ageris-for-runtime-configuration)** as typed Java objects, or as plain JSON.
+* **[Policies](#policies)**: configs that have behavior and work with live objects of your application.
+* **Values that depend on context.** Any flag, config or policy can differ by environment, cluster, user or any other context you define.
+* **[Safe updates](#how-updates-are-applied).** A file that cannot be loaded changes nothing: what was loaded before keeps being served.
+* **[A wait for the first load, and a status](#waiting-for-the-first-load-and-checking-status)** that tells whether a manager has loaded or is serving an older version, and why.
+* **[Listeners](#listening-for-updates)** that are called when content or status changes.
+* **[Reasons](#finding-out-why).** A lookup can say why it returned its value, and which context matched.
+* **[Test support](#testing-code-that-uses-ageris)** that sets flags, configs and policies from Java, with no files.
+
 ## Quick Start
 
 This guide describes with examples how to use Ageris.
@@ -43,7 +57,7 @@ Ageris 0.2.0 requires Java 17 or later.
 
 ### Central Configuration Files
 
-The core idea behind Ageris is to use a small set of central, easy to read files with a recursive JSON or YAML structure. These files are fetched by Ageris's configuration loader through a scheduled, aynchronous task.
+The core idea behind Ageris is to use a small set of central, easy to read files with a recursive JSON or YAML structure. These files are fetched by Ageris's configuration loader through a scheduled, asynchronous task.
 
 The following example of a configuration file contains a feature flag called "enable-international-welcome". Its evaluation at runtime results in a true or false value, depending on the environment of the deployed application and the current user. The feature flag would only be true, which means active, if the current user is 'joe' and the environment of the deployed application instance is 'qa'.
 
@@ -140,78 +154,7 @@ ConfigurationLoader loader = ageris.createLoader(Duration.ofSeconds(180));
 loader.start();
 ```
 
-#### How updates are applied
-
-Each manager refreshes on its own. Its files are fetched and its entries are replaced independently of the other managers, even when two managers read the same file.
-
-* Within one manager, an update replaces all of its entries at once.
-* Content that is the same as the content loaded last is not loaded again, so the objects a manager serves stay the same until a file changes. Call `ageris.setMaximumSkips(n)` to load unchanged content again after `n` refreshes, or with `0` on every refresh.
-* Managers that read the same file can be on different versions of it for a moment, and for longer if one of them fails to update.
-* If nothing can be fetched, or a file is not valid JSON or lacks the manager's root field, that manager keeps what it has.
-* If a single entry cannot be loaded, that manager keeps all of its entries as they were, until the file is fixed. Other managers still update.
-* Call `ageris.skipNonInstantiableConfiguration()` before building the managers to skip such an entry and update the rest instead. The skipped entry is then no longer served, so callers get their defaults, even if an earlier version of it had loaded. It is not tried again until a file changes.
-
-Failed updates are logged, counted in the loader metrics, and shown in the manager's status.
-
-#### Waiting for the first load and checking status
-
-The loader starts in the background, so lookups made before the first load return defaults. To wait for it:
-
-```Java
-ConfigurationLoader loader = ageris.createAndStartLoader(Duration.ofSeconds(180));
-if (!loader.awaitFirstLoad(Duration.ofSeconds(10))) {
-    /* Not every manager has loaded. Exit, or continue on defaults. */
-}
-```
-
-The wait ends once every manager has loaded and its listeners have been called for that load.
-
-Each manager reports its status:
-
-```Java
-ConfigurationStatus status = configManager.getStatus();
-if (status.getState() == ConfigurationStatus.State.STALE) {
-    log.warn("Configs are stale", status.getFailure());
-}
-```
-
-* `NOT_LOADED`: no load has succeeded, and lookups return defaults.
-* `LOADED`: the last refresh succeeded.
-* `STALE`: the last refresh failed, and the manager serves what it loaded before.
-
-`getFailure()` returns the exception of the last failed refresh, or `null`.
-
-#### Listening for updates
-
-A manager calls its listeners after it has loaded new content:
-
-```Java
-configManager.addListener(update ->
-        pool.resize(configManager.getConfig(PoolConfig.class, context).getSize()));
-```
-
-* A listener is called on the first load and whenever the content of the manager's files changes. It is not called for unchanged content or for a refresh that failed.
-* It is called after the entries were replaced, so lookups made inside it return the new values.
-* It runs on the loader's thread, and the manager's next refresh waits for it. Keep it quick, and hand slow work to an executor of your own.
-* An exception thrown by a listener is logged. The update stays applied and the other listeners are still called.
-
-A listener that is a class can also hear when the status of the manager changes:
-
-```Java
-configManager.addListener(new ConfigurationListener() {
-    @Override
-    public void onUpdate(ConfigurationUpdate update) { }
-
-    @Override
-    public void onStatusChange(ConfigurationStatus status) {
-        if (status.getState() == ConfigurationStatus.State.STALE) {
-            alerts.raise("Configs are stale", status.getFailure());
-        }
-    }
-});
-```
-
-`onStatusChange` is called when a manager has loaded for the first time, when a refresh fails and leaves it stale, when it recovers, and when its first load fails. It is not called again while the manager stays stale.
+See [How Ageris loads and updates](#how-ageris-loads-and-updates) for what happens on each refresh, how to wait for the first load, and how to listen for changes.
 
 ### Toggling Features with Ageris
 
@@ -386,3 +329,80 @@ ageris.setFlag("enable-international-welcome", false);
 * A policy is constructed by the test, with the objects it would be bound to or with stand-ins for them. No bindings are registered.
 * A flag or config that is not set behaves as in production: the flag is off, and the config comes from its no-argument constructor.
 * If the object's class is not the class your code asks for, as with a subclass or a mock, name the class: `setConfig(DBConfig.class, mockConfig)`.
+
+### How Ageris loads and updates
+
+The loader created in [Initializing Ageris](#initializing-ageris) fetches the configuration files on a schedule. This section describes what happens on each refresh, and how an application can follow it.
+
+#### How updates are applied
+
+Each manager refreshes on its own. Its files are fetched and its entries are replaced independently of the other managers, even when two managers read the same file.
+
+* Within one manager, an update replaces all of its entries at once.
+* Content that is the same as the content loaded last is not loaded again, so the objects a manager serves stay the same until a file changes. Call `ageris.setMaximumSkips(n)` to load unchanged content again after `n` refreshes, or with `0` on every refresh.
+* Managers that read the same file can be on different versions of it for a moment, and for longer if one of them fails to update.
+* If nothing can be fetched, or a file is not valid JSON or lacks the manager's root field, that manager keeps what it has.
+* If a single entry cannot be loaded, that manager keeps all of its entries as they were, until the file is fixed. Other managers still update.
+* Call `ageris.skipNonInstantiableConfiguration()` before building the managers to skip such an entry and update the rest instead. The skipped entry is then no longer served, so callers get their defaults, even if an earlier version of it had loaded. It is not tried again until a file changes.
+
+Failed updates are logged, counted in the loader metrics, and shown in the manager's status.
+
+#### Waiting for the first load and checking status
+
+The loader starts in the background, so lookups made before the first load return defaults. To wait for it:
+
+```Java
+ConfigurationLoader loader = ageris.createAndStartLoader(Duration.ofSeconds(180));
+if (!loader.awaitFirstLoad(Duration.ofSeconds(10))) {
+    /* Not every manager has loaded. Exit, or continue on defaults. */
+}
+```
+
+The wait ends once every manager has loaded and its listeners have been called for that load.
+
+Each manager reports its status:
+
+```Java
+ConfigurationStatus status = configManager.getStatus();
+if (status.getState() == ConfigurationStatus.State.STALE) {
+    log.warn("Configs are stale", status.getFailure());
+}
+```
+
+* `NOT_LOADED`: no load has succeeded, and lookups return defaults.
+* `LOADED`: the last refresh succeeded.
+* `STALE`: the last refresh failed, and the manager serves what it loaded before.
+
+`getFailure()` returns the exception of the last failed refresh, or `null`.
+
+#### Listening for updates
+
+A manager calls its listeners after it has loaded new content:
+
+```Java
+configManager.addListener(update ->
+        pool.resize(configManager.getConfig(PoolConfig.class, context).getSize()));
+```
+
+* A listener is called on the first load and whenever the content of the manager's files changes. It is not called for unchanged content or for a refresh that failed.
+* It is called after the entries were replaced, so lookups made inside it return the new values.
+* It runs on the loader's thread, and the manager's next refresh waits for it. Keep it quick, and hand slow work to an executor of your own.
+* An exception thrown by a listener is logged. The update stays applied and the other listeners are still called.
+
+A listener that is a class can also hear when the status of the manager changes:
+
+```Java
+configManager.addListener(new ConfigurationListener() {
+    @Override
+    public void onUpdate(ConfigurationUpdate update) { }
+
+    @Override
+    public void onStatusChange(ConfigurationStatus status) {
+        if (status.getState() == ConfigurationStatus.State.STALE) {
+            alerts.raise("Configs are stale", status.getFailure());
+        }
+    }
+});
+```
+
+`onStatusChange` is called when a manager has loaded for the first time, when a refresh fails and leaves it stale, when it recovers, and when its first load fails. It is not called again while the manager stays stale.
