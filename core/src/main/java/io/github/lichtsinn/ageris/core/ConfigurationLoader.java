@@ -122,8 +122,9 @@ public final class ConfigurationLoader {
         try {
             return timeout.toNanos();
         } catch (ArithmeticException exception) {
-            /* Longer than a long of nanoseconds can hold, about 292 years: wait as long as possible. */
-            return Long.MAX_VALUE;
+            /* More than a long of nanoseconds can hold, about 292 years: wait as long as possible, or not at all
+             * if the timeout is negative. */
+            return timeout.isNegative() ? 0 : Long.MAX_VALUE;
         }
     }
 

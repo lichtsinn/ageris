@@ -135,6 +135,14 @@ public class ConfigurationLoaderAwaitTest {
         Assert.assertTrue(loader.awaitFirstLoad(Duration.ofSeconds(Long.MAX_VALUE)));
     }
 
+    @Test(timeout = 5000)
+    public void testVeryLargeNegativeTimeoutReportsWithoutWaiting() {
+        ageris.addFeatureFlagManager("myapp").registerFile("/all.json").build();
+        ConfigurationLoader loader = ageris.createAndStartLoader(Duration.ofSeconds(10));
+
+        Assert.assertFalse(loader.awaitFirstLoad(Duration.ofSeconds(Long.MIN_VALUE)));
+    }
+
     @Test
     public void testZeroTimeoutReportsWithoutWaiting() {
         ageris.addFeatureFlagManager("myapp").registerFile("/all.json").build();
