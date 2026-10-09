@@ -96,7 +96,8 @@ public final class ConfigurationLoader {
     }
 
     /**
-     * Waits until every configuration manager of this loader has loaded once. Does not start the loader.
+     * Waits until every configuration manager of this loader has loaded once and has called its listeners for that
+     * load. Does not start the loader.
      *
      * @param timeout maximum time to wait, for all managers together
      * @return true if every manager has loaded, false if the timeout passed first or the waiting thread was interrupted

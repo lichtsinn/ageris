@@ -190,7 +190,9 @@ public class ConfigurationReader<T> {
             }
         } else {
             metrics.incrementNewContentsUpdates();
-            updateConfigurationManager(contents);
+            /* A forced reload of the content loaded last replaces the configurations but is no news to listeners. */
+            boolean changed = !Arrays.equals(previousHash, hash);
+            updateConfigurationManager(contents, changed);
             previousHash = hash;
             skipsLeft.set(maximumSkips);
         }
@@ -199,9 +201,10 @@ public class ConfigurationReader<T> {
     /**
      * Update configuration manager with configurations from provided map.
      *
+     * @param changed true if the content differs from the content loaded last
      * @throws IOException in case of a problem parsing configuration content
      */
-    private void updateConfigurationManager(Map<String, String> contents) throws IOException {
+    private void updateConfigurationManager(Map<String, String> contents, boolean changed) throws IOException {
         int numConfigurations = 0;
         /* Sorted by file name, so the message and the reported cause do not depend on the order of the fetch. */
         Map<String, IOException> failures = new TreeMap<>();
@@ -222,7 +225,11 @@ public class ConfigurationReader<T> {
         }
         metrics.incrementNameDuplicates(numConfigurations - configurationCache.size());
         metrics.incrementUpdates(configurationCache.size());
-        manager.updateConfigurations(configurationCache);
+        if (store != null) {
+            store.updateConfigurations(configurationCache, changed);
+        } else {
+            manager.updateConfigurations(configurationCache);
+        }
     }
 
     /**

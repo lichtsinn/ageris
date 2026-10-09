@@ -53,6 +53,25 @@ public class JsonConfigManager implements ConfigurationManager<JsonNode> {
     }
 
     /**
+     * Adds a listener that is called after this manager has loaded new content. It is not called for content that is
+     * the same as the content loaded last, or for a refresh that failed.
+     *
+     * @param listener listener to be added
+     */
+    public void addListener(ConfigurationListener listener) {
+        store.addListener(listener);
+    }
+
+    /**
+     * Removes a listener. Does nothing if it was not added.
+     *
+     * @param listener listener to be removed
+     */
+    public void removeListener(ConfigurationListener listener) {
+        store.removeListener(listener);
+    }
+
+    /**
      * @return the store of this manager, for the reader that refreshes it
      */
     ConfigurationStore<JsonNode> store() {

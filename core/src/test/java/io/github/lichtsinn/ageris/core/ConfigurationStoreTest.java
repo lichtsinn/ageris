@@ -22,7 +22,10 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -108,6 +111,178 @@ public class ConfigurationStoreTest {
 
         Assert.assertEquals(State.LOADED, store.getStatus().getState());
         Assert.assertNull(store.getStatus().getFailure());
+    }
+
+    @Test
+    public void testListenerIsCalledWithTheNamesNowLoaded() throws IOException {
+        List<List<String>> seen = new ArrayList<>();
+        store.addListener(update -> seen.add(update.getConfigurationNames()));
+
+        store.updateConfigurations(flags("enable-all"));
+
+        Assert.assertEquals(Collections.singletonList(Collections.singletonList("enable-all")), seen);
+    }
+
+    @Test
+    public void testListenerSeesTheNewEntriesAndTheLoadedStatus() throws IOException {
+        List<Object> seen = new ArrayList<>();
+        store.addListener(update -> {
+            seen.add(store.getValue("enable-all", new ConfigurationContext(), Boolean.FALSE));
+            seen.add(store.getStatus().getState());
+        });
+
+        store.updateConfigurations(flags("enable-all"));
+
+        Assert.assertEquals(Arrays.asList(Boolean.TRUE, State.LOADED), seen);
+    }
+
+    @Test
+    public void testListenersAreCalledInTheOrderTheyWereAdded() throws IOException {
+        List<String> calls = new ArrayList<>();
+        store.addListener(update -> calls.add("first"));
+        store.addListener(update -> calls.add("second"));
+        store.addListener(update -> calls.add("third"));
+
+        store.updateConfigurations(flags("enable-all"));
+
+        Assert.assertEquals(Arrays.asList("first", "second", "third"), calls);
+    }
+
+    @Test
+    public void testListenerIsNotCalledForAFailureOrUnchangedContent() throws IOException {
+        List<String> calls = new ArrayList<>();
+        store.updateConfigurations(flags("enable-all"));
+        store.addListener(update -> calls.add("called"));
+
+        store.failed(failure);
+        store.unchanged();
+
+        Assert.assertEquals(Collections.emptyList(), calls);
+    }
+
+    @Test
+    public void testListenerIsNotCalledForAnUpdateMadeBeforeItWasAdded() throws IOException {
+        List<String> calls = new ArrayList<>();
+        store.updateConfigurations(flags("enable-all"));
+
+        store.addListener(update -> calls.add("called"));
+
+        Assert.assertEquals(Collections.emptyList(), calls);
+    }
+
+    @Test
+    public void testUpdateWithoutNotificationReplacesEntriesButCallsNoListener() throws IOException {
+        List<String> calls = new ArrayList<>();
+        store.addListener(update -> calls.add("called"));
+
+        store.updateConfigurations(flags("enable-all"), false);
+
+        Assert.assertEquals(Collections.emptyList(), calls);
+        Assert.assertEquals(Collections.singletonList("enable-all"), store.getConfigurationNames());
+        Assert.assertEquals(State.LOADED, store.getStatus().getState());
+    }
+
+    @Test
+    public void testThrowingListenerDoesNotStopTheOthersOrChangeTheStatus() throws IOException {
+        List<String> calls = new ArrayList<>();
+        store.addListener(update -> {
+            throw new IllegalStateException("listener broke");
+        });
+        store.addListener(update -> calls.add("second"));
+
+        store.updateConfigurations(flags("enable-all"));
+
+        Assert.assertEquals(Collections.singletonList("second"), calls);
+        Assert.assertEquals(State.LOADED, store.getStatus().getState());
+        Assert.assertNull(store.getStatus().getFailure());
+        Assert.assertEquals(Collections.singletonList("enable-all"), store.getConfigurationNames());
+    }
+
+    @Test
+    public void testListenerThrowingAnErrorDoesNotStopTheOthersOrChangeTheStatus() throws IOException {
+        List<String> calls = new ArrayList<>();
+        store.addListener(update -> {
+            throw new NoClassDefFoundError("listener broke");
+        });
+        store.addListener(update -> calls.add("second"));
+
+        store.updateConfigurations(flags("enable-all"));
+
+        Assert.assertEquals(Collections.singletonList("second"), calls);
+        Assert.assertEquals(State.LOADED, store.getStatus().getState());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testNullListenerIsRejected() {
+        store.addListener(null);
+    }
+
+    @Test
+    public void testRemovedListenerIsNotCalled() throws IOException {
+        List<String> calls = new ArrayList<>();
+        ConfigurationListener listener = update -> calls.add("called");
+        store.addListener(listener);
+
+        store.removeListener(listener);
+        store.updateConfigurations(flags("enable-all"));
+
+        Assert.assertEquals(Collections.emptyList(), calls);
+    }
+
+    @Test
+    public void testRemovingAnUnregisteredListenerDoesNothing() throws IOException {
+        List<String> calls = new ArrayList<>();
+        store.addListener(update -> calls.add("called"));
+
+        store.removeListener(update -> calls.add("never added"));
+        store.updateConfigurations(flags("enable-all"));
+
+        Assert.assertEquals(Collections.singletonList("called"), calls);
+    }
+
+    @Test
+    public void testListenerRemovingItselfIsNotCalledAgainAndOthersStillAre() throws IOException {
+        List<String> calls = new ArrayList<>();
+        ConfigurationListener[] once = new ConfigurationListener[1];
+        once[0] = update -> {
+            calls.add("once");
+            store.removeListener(once[0]);
+        };
+        store.addListener(once[0]);
+        store.addListener(update -> calls.add("always"));
+
+        store.updateConfigurations(flags("enable-all"));
+        store.updateConfigurations(flags("enable-none"));
+
+        Assert.assertEquals(Arrays.asList("once", "always", "always"), calls);
+    }
+
+    @Test
+    public void testListenerAddedFromInsideAListenerIsCalledFromTheNextUpdate() throws IOException {
+        List<String> calls = new ArrayList<>();
+        ConfigurationListener late = update -> calls.add("late");
+        ConfigurationListener[] adder = new ConfigurationListener[1];
+        adder[0] = update -> {
+            calls.add("adder");
+            store.removeListener(adder[0]);
+            store.addListener(late);
+        };
+        store.addListener(adder[0]);
+
+        store.updateConfigurations(flags("enable-all"));
+        Assert.assertEquals(Collections.singletonList("adder"), calls);
+
+        store.updateConfigurations(flags("enable-none"));
+        Assert.assertEquals(Arrays.asList("adder", "late"), calls);
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void testNamesInAnUpdateCannotBeChanged() throws IOException {
+        List<List<String>> seen = new ArrayList<>();
+        store.addListener(update -> seen.add(update.getConfigurationNames()));
+        store.updateConfigurations(flags("enable-all"));
+
+        seen.get(0).add("another");
     }
 
     private static Map<String, Configuration<Boolean>> flags(String name) throws IOException {

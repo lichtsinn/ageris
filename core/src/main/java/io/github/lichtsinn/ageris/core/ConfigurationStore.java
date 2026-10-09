@@ -18,6 +18,8 @@
 package io.github.lichtsinn.ageris.core;
 
 import io.github.lichtsinn.ageris.core.ConfigurationStatus.State;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,6 +28,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -34,6 +37,12 @@ import java.util.concurrent.atomic.AtomicReference;
  * @param <T> type of configuration to be stored
  */
 final class ConfigurationStore<T> {
+
+    private final Logger log = LoggerFactory.getLogger(ConfigurationStore.class);
+
+    /* Copy-on-write, so that a listener may add or remove listeners while it is being called. Such a change
+     * takes effect from the next update. */
+    private final List<ConfigurationListener> listeners = new CopyOnWriteArrayList<>();
 
     private final AtomicReference<Map<String, Configuration<T>>> configurationStore;
 
@@ -48,15 +57,64 @@ final class ConfigurationStore<T> {
     }
 
     /**
-     * Replaces the stored configurations.
+     * Replaces the stored configurations and calls the listeners.
      *
      * @param configurations map of configurations to be stored
      */
     void updateConfigurations(Map<String, Configuration<T>> configurations) {
+        updateConfigurations(configurations, true);
+    }
+
+    /**
+     * Replaces the stored configurations.
+     *
+     * @param configurations map of configurations to be stored
+     * @param notify true to call the listeners, false if the content is the same as the content loaded last
+     */
+    void updateConfigurations(Map<String, Configuration<T>> configurations, boolean notify) {
         /* Request threads read this map while the loader thread replaces it, so the store must never hold a
          * map the caller can still mutate. Copying also keeps the order the configurations arrived in. */
         configurationStore.set(Collections.unmodifiableMap(new LinkedHashMap<>(configurations)));
         status.set(new ConfigurationStatus(State.LOADED, null));
+        if (notify) {
+            notifyListeners();
+        }
+    }
+
+    @SuppressWarnings("PMD.AvoidCatchingThrowable")
+    private void notifyListeners() {
+        ConfigurationUpdate update = new ConfigurationUpdate(getConfigurationNames());
+        for (ConfigurationListener listener : listeners) {
+            try {
+                listener.onUpdate(update);
+            } catch (Throwable throwable) {
+                /* A listener must not undo an update that was applied, or keep the other listeners from hearing of it.
+                 * Errors are caught too: on the loader's thread an error would end the scheduled refresh of this
+                 * manager silently and for good. */
+                log.error("Configuration listener {} failed", listener.getClass().getName(), throwable);
+            }
+        }
+    }
+
+    /**
+     * Adds a listener that is called after the stored configurations were replaced.
+     *
+     * @param listener listener to be added
+     */
+    void addListener(ConfigurationListener listener) {
+        if (listener == null) {
+            throw new IllegalArgumentException("Listener must not be null");
+        }
+        listeners.add(listener);
+    }
+
+    /**
+     * Removes a listener. Does nothing if it was not added.
+     *
+     * @param listener listener to be removed
+     */
+    void removeListener(ConfigurationListener listener) {
+        listeners.remove(listener);
     }
 
     /**

@@ -164,6 +164,8 @@ if (!loader.awaitFirstLoad(Duration.ofSeconds(10))) {
 }
 ```
 
+The wait ends once every manager has loaded and its listeners have been called for that load.
+
 Each manager reports its status:
 
 ```Java
@@ -178,6 +180,20 @@ if (status.getState() == ConfigurationStatus.State.STALE) {
 * `STALE`: the last refresh failed, and the manager serves what it loaded before.
 
 `getFailure()` returns the exception of the last failed refresh, or `null`.
+
+#### Listening for updates
+
+A manager calls its listeners after it has loaded new content:
+
+```Java
+configManager.addListener(update ->
+        pool.resize(configManager.getConfig(PoolConfig.class, context).getSize()));
+```
+
+* A listener is called on the first load and whenever the content of the manager's files changes. It is not called for unchanged content or for a refresh that failed.
+* It is called after the entries were replaced, so lookups made inside it return the new values.
+* It runs on the loader's thread, and the manager's next refresh waits for it. Keep it quick, and hand slow work to an executor of your own.
+* An exception thrown by a listener is logged. The update stays applied and the other listeners are still called.
 
 ### Toggling Features with Ageris
 
