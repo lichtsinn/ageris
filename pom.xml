@@ -260,6 +260,8 @@ limitations under the License.
                         </rulesets>
                         <includeTests>false</includeTests>
                         <printFailingErrors>true</printFailingErrors>
+                        <!-- No cross-referenced source report is built, so there is nothing to link findings to. -->
+                        <linkXRef>false</linkXRef>
                     </configuration>
                     <executions>
                         <execution>
