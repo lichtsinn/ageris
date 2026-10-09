@@ -195,6 +195,24 @@ configManager.addListener(update ->
 * It runs on the loader's thread, and the manager's next refresh waits for it. Keep it quick, and hand slow work to an executor of your own.
 * An exception thrown by a listener is logged. The update stays applied and the other listeners are still called.
 
+A listener that is a class can also hear when the status of the manager changes:
+
+```Java
+configManager.addListener(new ConfigurationListener() {
+    @Override
+    public void onUpdate(ConfigurationUpdate update) { }
+
+    @Override
+    public void onStatusChange(ConfigurationStatus status) {
+        if (status.getState() == ConfigurationStatus.State.STALE) {
+            alerts.raise("Configs are stale", status.getFailure());
+        }
+    }
+});
+```
+
+`onStatusChange` is called when a manager has loaded for the first time, when a refresh fails and leaves it stale, when it recovers, and when its first load fails. It is not called again while the manager stays stale.
+
 ### Toggling Features with Ageris
 
 Ageris's feature flag manager allows developers to selectively enable and disable parts of their code without redeploying or restarting application instances. In the following code example, the execution path is determined by applying the runtime configuration context to the external definition of the "enable-international-welcome" feature flag.

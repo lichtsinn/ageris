@@ -36,6 +36,25 @@ public class ConfigurationStoreTest {
     private final ConfigurationStore<Boolean> store = new ConfigurationStore<>();
     private final IOException failure = new IOException("first failure");
 
+    /** Records every callback as a line of text, in the order the callbacks arrive. */
+    private static final class RecordingListener implements ConfigurationListener {
+        private final List<String> events;
+
+        RecordingListener(List<String> events) {
+            this.events = events;
+        }
+
+        @Override
+        public void onUpdate(ConfigurationUpdate update) {
+            events.add("update " + update.getConfigurationNames());
+        }
+
+        @Override
+        public void onStatusChange(ConfigurationStatus status) {
+            events.add("status " + status.getState() + (status.getFailure() == null ? "" : " " + status.getFailure().getMessage()));
+        }
+    }
+
     @Test
     public void testNewStoreIsNotLoaded() {
         Assert.assertEquals(State.NOT_LOADED, store.getStatus().getState());
@@ -283,6 +302,175 @@ public class ConfigurationStoreTest {
         store.updateConfigurations(flags("enable-all"));
 
         seen.get(0).add("another");
+    }
+
+    @Test
+    public void testStatusChangeIsReportedBeforeTheUpdateOnTheFirstLoadOnly() throws IOException {
+        List<String> events = new ArrayList<>();
+        store.addListener(new RecordingListener(events));
+
+        store.updateConfigurations(flags("enable-all"));
+        store.updateConfigurations(flags("enable-none"));
+
+        Assert.assertEquals(Arrays.asList("status LOADED", "update [enable-all]", "update [enable-none]"), events);
+    }
+
+    @Test
+    public void testGoingStaleIsReportedOnceAndRepeatedFailuresAreNot() throws IOException {
+        List<String> events = new ArrayList<>();
+        store.updateConfigurations(flags("enable-all"));
+        store.addListener(new RecordingListener(events));
+
+        store.failed(failure);
+        store.failed(new IOException("second failure"));
+
+        Assert.assertEquals(Collections.singletonList("status STALE first failure"), events);
+    }
+
+    @Test
+    public void testRecoveryThroughUnchangedContentIsReportedWithoutAnUpdate() throws IOException {
+        List<String> events = new ArrayList<>();
+        store.updateConfigurations(flags("enable-all"));
+        store.failed(failure);
+        store.addListener(new RecordingListener(events));
+
+        store.unchanged();
+        store.unchanged();
+
+        Assert.assertEquals(Collections.singletonList("status LOADED"), events);
+    }
+
+    @Test
+    public void testRecoveryThroughAnUpdateIsReported() throws IOException {
+        List<String> events = new ArrayList<>();
+        store.updateConfigurations(flags("enable-all"));
+        store.failed(failure);
+        store.addListener(new RecordingListener(events));
+
+        store.updateConfigurations(flags("enable-none"));
+
+        Assert.assertEquals(Arrays.asList("status LOADED", "update [enable-none]"), events);
+    }
+
+    @Test
+    public void testFailedFirstLoadIsReportedOnceAndTheLoadThatFollowsToo() throws IOException {
+        List<String> events = new ArrayList<>();
+        store.addListener(new RecordingListener(events));
+
+        store.failed(failure);
+        store.failed(new IOException("second failure"));
+        store.updateConfigurations(flags("enable-all"));
+
+        Assert.assertEquals(Arrays.asList("status NOT_LOADED first failure", "status LOADED", "update [enable-all]"), events);
+    }
+
+    @Test
+    public void testUpdateWithoutNotificationStillReportsAStatusChange() throws IOException {
+        List<String> events = new ArrayList<>();
+        store.addListener(new RecordingListener(events));
+
+        store.updateConfigurations(flags("enable-all"), false);
+
+        Assert.assertEquals(Collections.singletonList("status LOADED"), events);
+    }
+
+    @Test
+    public void testStatusInsideTheCallbackIsTheNewStatus() throws IOException {
+        List<State> seen = new ArrayList<>();
+        store.addListener(new ConfigurationListener() {
+            @Override
+            public void onUpdate(ConfigurationUpdate update) {
+                // Only the status is of interest here.
+            }
+
+            @Override
+            public void onStatusChange(ConfigurationStatus status) {
+                seen.add(status.getState());
+                seen.add(store.getStatus().getState());
+            }
+        });
+
+        store.updateConfigurations(flags("enable-all"));
+        store.failed(failure);
+
+        Assert.assertEquals(Arrays.asList(State.LOADED, State.LOADED, State.STALE, State.STALE), seen);
+    }
+
+    @Test
+    public void testThrowingStatusListenerDoesNotStopTheOthers() throws IOException {
+        List<String> events = new ArrayList<>();
+        store.addListener(new ConfigurationListener() {
+            @Override
+            public void onUpdate(ConfigurationUpdate update) {
+                // Only the status is of interest here.
+            }
+
+            @Override
+            public void onStatusChange(ConfigurationStatus status) {
+                throw new NoClassDefFoundError("listener broke");
+            }
+        });
+        store.addListener(new RecordingListener(events));
+
+        store.updateConfigurations(flags("enable-all"));
+        store.failed(failure);
+
+        Assert.assertEquals(Arrays.asList("status LOADED", "update [enable-all]", "status STALE first failure"), events);
+        Assert.assertEquals(State.STALE, store.getStatus().getState());
+    }
+
+    /**
+     * Tests that status changes reach a listener in the order they happened, also when another listener causes
+     * one from inside its callback. Reported out of order, the last status a listener hears would not be the
+     * status of the store.
+     */
+    @Test
+    public void testStatusChangeCausedInsideACallbackIsReportedAfterTheCurrentOne() throws IOException {
+        List<String> events = new ArrayList<>();
+        Map<String, Configuration<Boolean>> repaired = flags("enable-none");
+        store.updateConfigurations(flags("enable-all"));
+        store.addListener(new ConfigurationListener() {
+            @Override
+            public void onUpdate(ConfigurationUpdate update) {
+                // Only the status is of interest here.
+            }
+
+            @Override
+            public void onStatusChange(ConfigurationStatus status) {
+                if (status.getState() == State.STALE) {
+                    store.updateConfigurations(repaired, false);
+                }
+            }
+        });
+        store.addListener(new RecordingListener(events));
+
+        store.failed(failure);
+
+        Assert.assertEquals(Arrays.asList("status STALE first failure", "status LOADED"), events);
+        Assert.assertEquals(State.LOADED, store.getStatus().getState());
+    }
+
+    @Test
+    public void testEveryListenerHearsTheStatusChangeBeforeAnyHearsTheUpdate() throws IOException {
+        List<String> events = new ArrayList<>();
+        store.addListener(new RecordingListener(events));
+        store.addListener(new RecordingListener(events));
+
+        store.updateConfigurations(flags("enable-all"));
+
+        Assert.assertEquals(Arrays.asList("status LOADED", "status LOADED", "update [enable-all]", "update [enable-all]"), events);
+    }
+
+    @Test
+    public void testLambdaListenerIsNotConcernedByStatusChanges() throws IOException {
+        List<String> calls = new ArrayList<>();
+        store.addListener(update -> calls.add("update"));
+
+        store.updateConfigurations(flags("enable-all"));
+        store.failed(failure);
+        store.unchanged();
+
+        Assert.assertEquals(Collections.singletonList("update"), calls);
     }
 
     private static Map<String, Configuration<Boolean>> flags(String name) throws IOException {

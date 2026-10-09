@@ -52,8 +52,9 @@ public class ConfigManager implements ConfigurationManager<Object> {
     }
 
     /**
-     * Adds a listener that is called after this manager has loaded new content. It is not called for content that is
-     * the same as the content loaded last, or for a refresh that failed.
+     * Adds a listener. Its {@code onUpdate} is called after this manager has loaded new content, not for content
+     * that is the same as the content loaded last or for a refresh that failed. Its {@code onStatusChange} is called
+     * when the status of this manager changes.
      *
      * @param listener listener to be added
      */

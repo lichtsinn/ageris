@@ -17,6 +17,7 @@ package io.github.lichtsinn.ageris.core;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import io.github.lichtsinn.ageris.core.ConfigurationStatus.State;
 import io.github.lichtsinn.ageris.core.configs.NumberConfig;
 import org.junit.Assert;
 import org.junit.Test;
@@ -147,6 +148,34 @@ public class AgerisListenerTest {
 
         Assert.assertEquals(Arrays.asList(7, 8), numbersSeen);
         Assert.assertTrue(loader.awaitFirstLoad(Duration.ZERO));
+    }
+
+    @Test
+    public void testStatusChangesAreReportedThroughRefreshes() {
+        List<State> states = new ArrayList<>();
+        ConfigManager configManager = ageris.addConfigManager("myapp").registerFile("/configs.json").build();
+        configManager.addListener(new ConfigurationListener() {
+            @Override
+            public void onUpdate(ConfigurationUpdate update) {
+                // Only the status is of interest here.
+            }
+
+            @Override
+            public void onStatusChange(ConfigurationStatus status) {
+                states.add(status.getState());
+            }
+        });
+        Runnable refresh = startLoader();
+
+        refresh.run();
+        refresh.run();
+        content.set(BAD);
+        refresh.run();
+        refresh.run();
+        content.set(GOOD);
+        refresh.run();
+
+        Assert.assertEquals(Arrays.asList(State.LOADED, State.STALE, State.LOADED), states);
     }
 
     private ConfigManager managerWithListener() {

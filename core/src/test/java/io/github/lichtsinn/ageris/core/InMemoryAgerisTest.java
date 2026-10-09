@@ -283,6 +283,26 @@ public class InMemoryAgerisTest {
     }
 
     @Test
+    public void testSettingValuesReportsNoStatusChange() {
+        List<State> states = new ArrayList<>();
+        ageris.featureFlagManager().addListener(new ConfigurationListener() {
+            @Override
+            public void onUpdate(ConfigurationUpdate update) {
+                // Only the status is of interest here.
+            }
+
+            @Override
+            public void onStatusChange(ConfigurationStatus status) {
+                states.add(status.getState());
+            }
+        });
+
+        ageris.setFlag("enable-checkout", true).removeFlag("enable-checkout");
+
+        Assert.assertEquals(Collections.emptyList(), states);
+    }
+
+    @Test
     public void testManagersAreLoadedFromTheStart() {
         Assert.assertEquals(State.LOADED, ageris.featureFlagManager().getStatus().getState());
         Assert.assertEquals(State.LOADED, ageris.configManager().getStatus().getState());

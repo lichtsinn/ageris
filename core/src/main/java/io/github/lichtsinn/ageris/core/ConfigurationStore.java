@@ -23,14 +23,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 /**
  * In-memory store for configurations, held by each of the configuration managers.
@@ -50,6 +54,12 @@ final class ConfigurationStore<T> {
     /* One immutable object replaced in a single step, so a caller never sees the state of one refresh with the
      * failure of another. */
     private final AtomicReference<ConfigurationStatus> status;
+
+    /* Status changes that listeners have not been told yet, oldest first. Also the lock for changing the status. */
+    private final Deque<ConfigurationStatus> unreported = new ArrayDeque<>();
+
+    /* True while a thread is telling listeners about status changes. Guarded by the lock above. */
+    private boolean reporting;
 
     /** Creates an empty store. */
     ConfigurationStore() {
@@ -76,18 +86,53 @@ final class ConfigurationStore<T> {
         /* Request threads read this map while the loader thread replaces it, so the store must never hold a
          * map the caller can still mutate. Copying also keeps the order the configurations arrived in. */
         configurationStore.set(Collections.unmodifiableMap(new LinkedHashMap<>(configurations)));
-        status.set(new ConfigurationStatus(State.LOADED, null));
+        changeStatus(current -> new ConfigurationStatus(State.LOADED, null));
         if (notify) {
-            notifyListeners();
+            ConfigurationUpdate update = new ConfigurationUpdate(getConfigurationNames());
+            callListeners(listener -> listener.onUpdate(update));
+        }
+    }
+
+    /**
+     * Replaces the status, and tells the listeners if the state is another one or a failure appeared or disappeared.
+     * A manager that stays stale, or keeps failing its first load, is therefore reported once.
+     *
+     * Changes are reported in the order they happened, by one thread at a time. A change made while another one is
+     * being reported, by another thread or from inside a listener, is reported after it. Reported as they come,
+     * the last status a listener hears could be an earlier one than the status of the store.
+     */
+    private void changeStatus(UnaryOperator<ConfigurationStatus> change) {
+        synchronized (unreported) {
+            ConfigurationStatus previous = status.get();
+            ConfigurationStatus next = change.apply(previous);
+            status.set(next);
+            if (previous.getState() != next.getState() || (previous.getFailure() == null) != (next.getFailure() == null)) {
+                unreported.add(next);
+            }
+            if (reporting) {
+                return;
+            }
+            reporting = true;
+        }
+        /* Listeners are called outside the lock, so that a listener cannot block a thread that changes the status. */
+        while (true) {
+            ConfigurationStatus changed;
+            synchronized (unreported) {
+                changed = unreported.poll();
+                if (changed == null) {
+                    reporting = false;
+                    return;
+                }
+            }
+            callListeners(listener -> listener.onStatusChange(changed));
         }
     }
 
     @SuppressWarnings("PMD.AvoidCatchingThrowable")
-    private void notifyListeners() {
-        ConfigurationUpdate update = new ConfigurationUpdate(getConfigurationNames());
+    private void callListeners(Consumer<ConfigurationListener> call) {
         for (ConfigurationListener listener : listeners) {
             try {
-                listener.onUpdate(update);
+                call.accept(listener);
             } catch (Throwable throwable) {
                 /* A listener must not undo an update that was applied, or keep the other listeners from hearing of it.
                  * Errors are caught too: on the loader's thread an error would end the scheduled refresh of this
@@ -122,7 +167,7 @@ final class ConfigurationStore<T> {
      * Records a refresh that found the content unchanged, so that the stored configurations are current.
      */
     void unchanged() {
-        status.set(new ConfigurationStatus(State.LOADED, null));
+        changeStatus(current -> new ConfigurationStatus(State.LOADED, null));
     }
 
     /**
@@ -131,7 +176,7 @@ final class ConfigurationStore<T> {
      * @param failure exception that ended the refresh
      */
     void failed(Exception failure) {
-        status.updateAndGet(current -> new ConfigurationStatus(
+        changeStatus(current -> new ConfigurationStatus(
                 current.getState() == State.NOT_LOADED ? State.NOT_LOADED : State.STALE, failure));
     }
 
