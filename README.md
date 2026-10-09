@@ -30,6 +30,7 @@ Ageris runs inside your application. It needs no server: it reads [configuration
 * **[Feature flags](#toggling-features-with-ageris)** that turn code paths on and off without a deployment.
 * **[Runtime configuration](#using-ageris-for-runtime-configuration)** as typed Java objects, called configs, or as plain JSON.
 * **[Policies](#policies)**: configs that have behavior and work with live objects of your application.
+* **[Immutable by design](#immutable-by-design).** Write a config as an immutable class or a Java record, and it stays that way: Ageris never changes it after loading. When a file changes, Ageris creates new objects and replaces the old ones, so your code never sees a half-updated config.
 * **Values that depend on context.** Any feature flag, config or policy can differ by environment, cluster, user or any other context you define.
 * **[Safe updates](#how-updates-are-applied).** A file that cannot be loaded changes nothing: what was loaded before keeps being served.
 * **[A wait for the first load, and a status](#waiting-for-the-first-load-and-checking-status)** that tells whether a manager has loaded or is serving an older version, and why.
@@ -248,6 +249,59 @@ public class HelloWorld {
     }
 }
 ```
+
+#### Immutable by design
+
+A config can be immutable and still change at runtime. Ageris never modifies a config after loading it. When a file changes, it creates a new object and replaces the old one.
+
+The shortest immutable config is a Java record:
+
+```Java
+public record Limits(int maxConnections, List<String> hosts) {
+
+    public Limits {
+        hosts = List.copyOf(hosts);   // a record does not make the list it holds unmodifiable
+    }
+}
+```
+
+```JSON
+{
+  "configs": {
+    "com.example.Limits": {
+      "value": { "maxConnections": 10, "hosts": ["db1"] },
+      "modifiers": {
+        "type": "environment",
+        "contexts": {
+          "qa": { "value": { "maxConnections": 2, "hosts": ["qa-db1"] } }
+        }
+      }
+    }
+  }
+}
+```
+
+```Java
+Limits limits = configManager.getConfig(Limits.class, context);
+```
+
+A class with final fields that are set through its constructor, like `HelloWorldConfig` above, works the same way.
+
+What Ageris guarantees:
+
+* It never modifies a config or policy after loading it. An update creates new objects and replaces a manager's whole set in one step.
+* Code that holds a config or policy keeps a consistent one. It never sees a half-updated object.
+* The same object is returned for as long as the manager's files stay the same. When one of them changes, all of that manager's objects are created anew, including those whose values did not change.
+* [Policies](#policies) must take their values from the file through the constructor. Ageris refuses a policy class with a setter or a writable field.
+
+Your part:
+
+* Write config classes as records, or with final fields and no setters. Ageris does not refuse a plain config class that has setters.
+* Copy the collections a config receives, for example with `List.copyOf`, and do not hand out ones that can be modified. Ageris does not check what a config holds.
+* To work with one version throughout a request, fetch the config once and keep it. Two separate lookups can return different versions if a file changes between them.
+* A record has no no-argument constructor, so `getConfig` throws `ConfigInstantiationException` if the file has no entry for it.
+* JSON configs are Jackson nodes, which can be modified. Treat them as read-only.
+* Feature flags and configs are replaced separately. Right after a file changes, a feature flag can already be new while a config is still the previous one; see [How updates are applied](#how-updates-are-applied).
 
 ### Policies
 
