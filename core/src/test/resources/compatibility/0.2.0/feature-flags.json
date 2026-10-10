@@ -1,0 +1,63 @@
+{
+  "feature-flags": {
+    "enable-international-welcome": {
+      "comment": "On for joe in qa only.",
+      "value": false,
+      "modifiers": {
+        "type": "environment",
+        "contexts": {
+          "qa": {
+            "value": false,
+            "modifiers": {
+              "type": "user",
+              "contexts": {
+                "joe": {
+                  "value": true
+                }
+              }
+            }
+          },
+          "production": {
+            "value": false
+          }
+        }
+      }
+    },
+    "enable-everywhere": {
+      "value": true
+    },
+    "enable-by-cluster": {
+      "value": false,
+      "modifiers": {
+        "type": "environment",
+        "contexts": {
+          "production": {
+            "comment": "On in production, except on eu-1, where only anna has it.",
+            "value": true,
+            "modifiers": {
+              "type": "cluster",
+              "contexts": {
+                "eu-1": {
+                  "value": false,
+                  "modifiers": {
+                    "type": "user",
+                    "contexts": {
+                      "anna": { "value": true }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "enable-with-empty-contexts": {
+      "value": true,
+      "modifiers": {
+        "type": "environment",
+        "contexts": {}
+      }
+    }
+  }
+}

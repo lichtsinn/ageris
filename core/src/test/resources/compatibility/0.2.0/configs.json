@@ -1,0 +1,22 @@
+{
+  "configs": {
+    "io.github.lichtsinn.ageris.core.configs.NumberConfig": {
+      "comment": "1 by default, 2 in qa, 3 in qa on cluster eu-1.",
+      "value": { "number": 1 },
+      "modifiers": {
+        "type": "environment",
+        "contexts": {
+          "qa": {
+            "value": { "number": 2 },
+            "modifiers": {
+              "type": "cluster",
+              "contexts": {
+                "eu-1": { "value": { "number": 3 } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

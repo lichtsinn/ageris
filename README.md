@@ -32,6 +32,7 @@ Ageris runs inside your application. It needs no server: it reads [configuration
 * **[Policies](#policies)**: configs that have behavior and work with live objects of your application.
 * **[Immutable by design](#immutable-by-design).** Write a config as an immutable class or a Java record, and it stays that way: Ageris never changes it after loading. When a file changes, Ageris creates new objects and replaces the old ones, so your code never sees a half-updated config.
 * **Values that depend on context.** Any feature flag, config or policy can differ by environment, cluster, user or any other context you define.
+* **[Targeting](#targeting)** by a list of values and by a percentage of callers, for feature flags, configs and policies alike.
 * **[Safe updates](#how-updates-are-applied).** A file that cannot be loaded changes nothing: what was loaded before keeps being served.
 * **[A wait for the first load, and a status](#waiting-for-the-first-load-and-checking-status)** that tells whether a manager has loaded or is serving an older version, and why.
 * **[Listeners](#listening-for-updates)** that are called when content or status changes.
@@ -128,6 +129,70 @@ Runtime configurations - or short configs - share the same recursive structure b
   }
 }
 ```
+
+#### Targeting
+
+A modifier picks a nested entry by the exact value of its context type. It can also hold `rules` for the values that have no entry of their own:
+
+```JSON
+{
+  "feature-flags": {
+    "enable-checkout": {
+      "value": false,
+      "modifiers": {
+        "type": "environment",
+        "contexts": {
+          "qa": {
+            "value": false,
+            "modifiers": {
+              "type": "user",
+              "contexts": { "joe": { "value": true } },
+              "rules": [
+                { "in": ["anna", "ben"], "value": true },
+                { "percent": 10, "value": true }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+In `qa` the feature flag is on for joe, for anna and ben, and for 10 percent of the other users. Everywhere else it is off.
+
+At each level a named entry in `contexts` wins, then the rules are tried from top to bottom, and if none matches the value of that level applies.
+
+| Match | True when the caller's value |
+|---|---|
+| `"in": ["anna", "ben"]` | equals one of the listed values, exactly |
+| `"percent": 10` | falls into the first 10 percent; two decimals are allowed |
+
+* A rule holds a `value` and may hold `modifiers` of its own, like any entry. Once a named entry or a rule is chosen, the value comes from inside it.
+* A rule with both `in` and `percent` needs both: the value is listed and falls into the percentage.
+* `in` holds texts in quotes. `percent` is a number from 0 to 100, without quotes.
+* Rules work for feature flags, configs, JSON configs and policies, so a policy can be rolled out to a share of users.
+* A caller that has no value for the context type matches no rule.
+* A malformed rule, such as one with a misspelled key, is refused when the file is loaded. See [How updates are applied](#how-updates-are-applied).
+
+A percentage is decided by hashing the caller's value together with the name of the feature flag or config, so nothing is stored:
+
+* The same caller always gets the same answer, on every server and after every restart.
+* Raising a percentage keeps everyone who was in. Lowering it removes those who were added last.
+* Each feature flag or config has its own callers. Renaming it, which for a config means renaming or moving its class, changes who they are.
+* `percent` means the first so many percent, so a later rule only sees callers no earlier rule matched:
+
+```JSON
+"rules": [
+  { "percent": 10, "value": "A" },
+  { "percent": 30, "value": "B" }
+]
+```
+
+The first 10 percent get A, the next 20 percent get B, and everyone else gets the value of the level.
+
+Upgrade every application that reads a file before using `rules` in it. An application on Ageris 0.2.0 does not know the key, cannot load the entry, and keeps the configuration it loaded before. If it was given a JSON mapper that ignores unknown properties, it loads the entry without a failure and leaves the rules out.
 
 ### Initializing Ageris
  
