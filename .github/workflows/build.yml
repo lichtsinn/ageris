@@ -23,14 +23,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 17 is the oldest Java the artifacts run on; 25 is the current LTS.
+        java: [ '17', '25' ]
+    name: build (Java ${{ matrix.java }})
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          # Artifacts target release 17; the build itself runs on the current LTS.
-          java-version: '25'
+          java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: maven
 
@@ -41,7 +46,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: analysis-reports
+          name: analysis-reports-java-${{ matrix.java }}
           path: |
             **/target/site/
             **/target/surefire-reports/
