@@ -92,10 +92,22 @@ public final class Context<T> {
      * @return value object based on runtime context
      */
     public T getValue(ConfigurationContext runtimeContext) {
+        return getValue(runtimeContext, Rule.seed(null));
+    }
+
+    /**
+     * Returns value object based on provided runtime context. Ageris calls this with the seed of the configuration the context
+     * belongs to, so that a percentage in a rule gives every configuration its own callers.
+     *
+     * @param runtimeContext context, provided at runtime
+     * @param seed seed of the configuration, see {@link Rule#seed(String)}
+     * @return value object based on runtime context
+     */
+    public T getValue(ConfigurationContext runtimeContext, int seed) {
         if (modifiers != null) {
-            T modifiersVaue = modifiers.getValue(runtimeContext);
-            if (modifiersVaue != null) {
-                return modifiersVaue;
+            T modifiersValue = modifiers.getValue(runtimeContext, seed);
+            if (modifiersValue != null) {
+                return modifiersValue;
             }
         }
         return value;
@@ -109,13 +121,25 @@ public final class Context<T> {
      * @return evaluation with the value object based on runtime context
      */
     public Evaluation<T> evaluate(ConfigurationContext runtimeContext) {
+        return evaluate(runtimeContext, Rule.seed(null));
+    }
+
+    /**
+     * Returns value object based on provided runtime context, together with the modifiers that matched. The value is
+     * the one {@link #getValue(ConfigurationContext, int)} returns.
+     *
+     * @param runtimeContext context, provided at runtime
+     * @param seed seed of the configuration, see {@link Rule#seed(String)}
+     * @return evaluation with the value object based on runtime context
+     */
+    public Evaluation<T> evaluate(ConfigurationContext runtimeContext, int seed) {
         if (modifiers == null) {
             return new Evaluation<>(value, Evaluation.Reason.STATIC, Collections.emptyMap());
         }
         Map<String, String> matches = new LinkedHashMap<>();
         Context<T> deepest = this;
         while (deepest.modifiers != null) {
-            Context<T> nested = deepest.modifiers.match(runtimeContext, matches);
+            Context<T> nested = deepest.modifiers.match(runtimeContext, seed, matches);
             if (nested == null) {
                 break;
             }

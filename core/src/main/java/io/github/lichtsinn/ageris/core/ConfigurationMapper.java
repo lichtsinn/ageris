@@ -157,7 +157,10 @@ public class ConfigurationMapper<T> {
             return new Configuration<>(className, context);
         } catch (ClassNotFoundException exception) {
             //non-instantiable configuration class
-            throw new IOException(exception);
+            throw new IOException("Cannot read " + className + ": no class of that name was found", exception);
+        } catch (IllegalArgumentException exception) {
+            //non-instantiable configuration class
+            throw new IOException("Cannot read " + className + ": " + exception.getMessage(), exception);
         }
     }
 
@@ -167,15 +170,10 @@ public class ConfigurationMapper<T> {
      * @param json JSON representation to be de-serialized
      * @param clazz class of target config object
      * @return newly instantiated object of type T
-     * @throws IOException if JavaType and JSON are incompatible or other deserialization problems
+     * @throws IllegalArgumentException if JavaType and JSON are incompatible or other deserialization problems
      */
-    private Context<T> convertValue(JsonNode json, Class<T> clazz) throws IOException {
-        try {
-            JavaType javaType = bindingMapper.getTypeFactory().constructParametricType(Context.class, clazz);
-            return bindingMapper.convertValue(json, javaType);
-        } catch (IllegalArgumentException exception) {
-            //non-instantiable configuration class
-            throw new IOException(exception);
-        }
+    private Context<T> convertValue(JsonNode json, Class<T> clazz) {
+        JavaType javaType = bindingMapper.getTypeFactory().constructParametricType(Context.class, clazz);
+        return bindingMapper.convertValue(json, javaType);
     }
 }

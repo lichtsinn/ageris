@@ -18,6 +18,7 @@
 package io.github.lichtsinn.ageris.core;
 
 import io.github.lichtsinn.ageris.core.structure.Context;
+import io.github.lichtsinn.ageris.core.structure.Rule;
 
 /**
  * Configuration.
@@ -29,6 +30,9 @@ public final class Configuration<T> {
     private final String name;
     private final Context<T> context;
 
+    /* Seed for the percentages of rules, so that every configuration gets its own callers. */
+    private final int seed;
+
     /**
      * Creates configuration with provided name and context definition.
      *
@@ -38,6 +42,7 @@ public final class Configuration<T> {
     public Configuration(String name, Context<T> context) {
         this.name = name;
         this.context = context;
+        this.seed = Rule.seed(name);
     }
 
     /**
@@ -61,7 +66,7 @@ public final class Configuration<T> {
      * @return value object based on context
      */
     T getValue(ConfigurationContext runtimeContext) {
-        return context.getValue(runtimeContext);
+        return context.getValue(runtimeContext, seed);
     }
 
     /**
@@ -71,6 +76,6 @@ public final class Configuration<T> {
      * @return evaluation of this configuration
      */
     Evaluation<T> evaluate(ConfigurationContext runtimeContext) {
-        return context.evaluate(runtimeContext);
+        return context.evaluate(runtimeContext, seed);
     }
 }
