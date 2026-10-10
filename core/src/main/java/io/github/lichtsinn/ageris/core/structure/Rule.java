@@ -76,9 +76,9 @@ public final class Rule<T> {
     @SuppressWarnings("PMD.SingularField") // Read by Jackson when the rule is written.
     private final Modifiers<T> modifiers;
 
-    /* Prepared from the fields above; not part of the JSON representation. */
-    private final int threshold;
-    private final Context<T> node;
+    /* Prepared from the fields above. Transient, so that no JSON mapper takes them for a part of the JSON representation. */
+    private final transient int threshold;
+    private final transient Context<T> node;
 
     /**
      * Creates a rule. The list and the percentage are taken as they are written in a configuration file, and checked here,

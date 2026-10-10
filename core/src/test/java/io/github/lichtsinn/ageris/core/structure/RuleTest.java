@@ -15,6 +15,8 @@
  */
 package io.github.lichtsinn.ageris.core.structure;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -193,6 +195,16 @@ public class RuleTest {
         Assert.assertEquals("{\"in\":[\"anna\",\"ben\"],\"value\":true}",
                 MAPPER.writeValueAsString(rule("{ \"in\": [\"anna\", \"ben\"], \"value\": true }")));
         Assert.assertEquals("{\"percent\":10,\"value\":true}", MAPPER.writeValueAsString(rule("{ \"percent\": 10, \"value\": true }")));
+    }
+
+    @Test
+    public void testPreparedStateStaysOutOfTheFileWhateverTheMapperSees() throws IOException {
+        ObjectMapper allFields = new ObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+
+        Assert.assertEquals("{\"in\":[\"anna\"],\"percent\":50,\"value\":true}",
+                allFields.writeValueAsString(rule("{ \"in\": [\"anna\"], \"percent\": 50, \"value\": true }")));
+        assertRefused(allFields, "{ \"percent\": 0, \"threshold\": 10000, \"value\": true }", "Unknown key \"threshold\" in a rule");
+        assertRefused(allFields, "{ \"percent\": 100, \"value\": false, \"node\": { \"value\": true } }", "Unknown key \"node\" in a rule");
     }
 
     private static Rule<Boolean> rule(String json) throws IOException {

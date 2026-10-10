@@ -180,6 +180,7 @@ A percentage is decided by hashing the caller's value together with the name of 
 
 * The same caller always gets the same answer, on every server and after every restart.
 * Raising a percentage keeps everyone who was in. Lowering it removes those who were added last.
+* Within one feature flag or config the same callers fall into a percentage at every level, so 10 percent inside 10 percent of the same context type is still those 10 percent.
 * Each feature flag or config has its own callers. Renaming it, which for a config means renaming or moving its class, changes who they are.
 * `percent` means the first so many percent, so a later rule only sees callers no earlier rule matched:
 
@@ -192,7 +193,7 @@ A percentage is decided by hashing the caller's value together with the name of 
 
 The first 10 percent get A, the next 20 percent get B, and everyone else gets the value of the level.
 
-Upgrade every application that reads a file before using `rules` in it. An application on Ageris 0.2.0 does not know the key, cannot load the entry, and keeps the configuration it loaded before. If it was given a JSON mapper that ignores unknown properties, it loads the entry without a failure and leaves the rules out.
+Upgrade every application that reads a file before using `rules` in it. An application on Ageris 0.2.0 does not know the key and cannot load the entry. It keeps the configuration it loaded before or, if it was told to skip entries it cannot load, stops serving that entry. If it was given a JSON mapper that ignores unknown properties, it loads the entry without a failure and leaves the rules out.
 
 ### Initializing Ageris
  
