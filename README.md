@@ -51,17 +51,17 @@ Ageris releases can be downloaded from the Maven central repository. Adding Ager
 <dependency>
     <groupId>io.github.lichtsinn</groupId>
     <artifactId>ageris-core</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 ```
 
 With Gradle:
 
 ```groovy
-implementation 'io.github.lichtsinn:ageris-core:0.2.0'
+implementation 'io.github.lichtsinn:ageris-core:0.3.0'
 ```
 
-Ageris 0.2.0 requires Java 17 or later.
+Ageris 0.3.0 requires Java 17 or later.
 
 ### Central Configuration Files
 

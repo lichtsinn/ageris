@@ -16,7 +16,7 @@ limitations under the License.
 
 # Migrating from Merci to Ageris
 
-This guide covers moving from Merci 0.1.2 to Ageris 0.2.0. Configuration files need no change: the JSON structure and the `feature-flags` and `configs` root fields are the same.
+This guide covers moving from Merci 0.1.2 to Ageris 0.2.0 or later. Configuration files need no change: the JSON structure and the `feature-flags` and `configs` root fields are the same.
 
 ## Steps
 
@@ -27,7 +27,7 @@ This guide covers moving from Merci 0.1.2 to Ageris 0.2.0. Configuration files n
    <dependency>
        <groupId>io.github.lichtsinn</groupId>
        <artifactId>ageris-core</artifactId>
-       <version>0.2.0</version>
+       <version>0.3.0</version>
    </dependency>
    ```
 
