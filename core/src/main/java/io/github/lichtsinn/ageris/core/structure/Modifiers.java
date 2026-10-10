@@ -101,7 +101,7 @@ public final class Modifiers<T> {
         this.rules = checked(type, rules);
         if (contexts == null && this.rules.isEmpty()) {
             /* Neither contexts nor rules, which is also what an explicit "contexts": null amounts to. */
-            throw new IllegalArgumentException("Configuration modifiers of type " + type + " require non-null contexts");
+            throw new IllegalArgumentException("Configuration modifiers of type " + type + " need \"contexts\" or at least one rule in \"rules\"");
         }
         this.contexts = contexts == null ? Collections.emptyMap() : contexts;
     }
@@ -166,7 +166,10 @@ public final class Modifiers<T> {
         boolean everyone = false;
         for (int index = 0; index < copy.size(); index++) {
             final Rule<T> rule = copy.get(index);
-            if (rule == null || !rule.hasMatch()) {
+            if (rule == null) {
+                throw new IllegalArgumentException("Rule " + (index + 1) + " for " + type + " is null");
+            }
+            if (!rule.hasMatch()) {
                 throw new IllegalArgumentException("Rule " + (index + 1) + " for " + type + " has no match: it needs \"in\" or \"percent\"");
             }
             if (everyone) {

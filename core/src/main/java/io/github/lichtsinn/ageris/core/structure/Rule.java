@@ -94,8 +94,11 @@ public final class Rule<T> {
     @JsonCreator
     public Rule(@JsonProperty("in") List<?> oneOf,
                 @JsonProperty("percent") Object percent,
-                @JsonProperty(value = "value", required = true) T value,
+                @JsonProperty("value") T value,
                 @JsonProperty("modifiers") Modifiers<T> modifiers) {
+        if (value == null) {
+            throw new IllegalArgumentException("A rule needs a \"value\"");
+        }
         this.oneOf = texts(oneOf);
         this.percent = decimal(percent);
         this.threshold = threshold(this.percent);

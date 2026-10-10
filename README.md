@@ -174,7 +174,7 @@ At each level a named entry in `contexts` wins, then the rules are tried from to
 * `in` holds texts in quotes. `percent` is a number from 0 to 100, without quotes.
 * Rules work for feature flags, configs, JSON configs and policies, so a policy can be rolled out to a share of users.
 * A caller that has no value for the context type matches no rule.
-* A malformed rule, such as one with a misspelled key, is refused when the file is loaded. See [How updates are applied](#how-updates-are-applied).
+* A malformed rule, such as one with a misspelled key or with the same key twice, is refused when the file is loaded. See [How updates are applied](#how-updates-are-applied).
 
 A percentage is decided by hashing the caller's value together with the name of the feature flag or config, so nothing is stored:
 

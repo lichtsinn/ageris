@@ -17,6 +17,7 @@
  */
 package io.github.lichtsinn.ageris.core;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,6 +26,7 @@ import io.github.lichtsinn.ageris.core.structure.Context;
 import io.github.lichtsinn.ageris.core.utils.ClassFinder;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -102,7 +104,20 @@ public class ConfigurationMapper<T> {
         if (rootJsonNode == null) {
             throw new IOException("Missing root field " + root);
         }
-        return createConfigurations(rootJsonNode);
+        return createConfigurations(rootJsonNode, repeatedRuleKeys(content));
+    }
+
+    /**
+     * @return name of a configuration to the problem, for the configurations with a rule that holds the same key twice
+     */
+    private Map<String, String> repeatedRuleKeys(String content) throws IOException {
+        if (!content.contains("rules")) {
+            /* A file without rules is not read a second time. */
+            return Collections.emptyMap();
+        }
+        try (JsonParser parser = objectMapper.getFactory().createParser(content)) {
+            return RepeatedRuleKeys.find(parser, root);
+        }
     }
 
     /**
@@ -119,16 +134,18 @@ public class ConfigurationMapper<T> {
      * Returns new map of configurations from provided JsonNode configuration hierarchy.
      *
      * @param rootJsonNode root node of configuration hierarchy
+     * @param repeated name of a configuration to the problem, for those with a rule that holds the same key twice
      * @return new map of configurations
      * @throws IOException in case of conversion issues
      */
-    private Map<String, Configuration<T>> createConfigurations(JsonNode rootJsonNode) throws IOException {
+    private Map<String, Configuration<T>> createConfigurations(JsonNode rootJsonNode, Map<String, String> repeated) throws IOException {
         Map<String, Configuration<T>> configurations = new HashMap<>();
         Iterator<Map.Entry<String, JsonNode>> configurationEntries = rootJsonNode.fields();
         while (configurationEntries.hasNext()) {
             try {
                 Map.Entry<String, JsonNode> configurationEntry = configurationEntries.next();
                 String className = configurationEntry.getKey();
+                refuseRepeatedRuleKeys(className, repeated.get(className));
                 Configuration<T> configuration = convertValue(configurationEntry.getValue(), className);
                 configurations.put(className, configuration);
             } catch (IOException exception) {
@@ -140,6 +157,13 @@ public class ConfigurationMapper<T> {
             }
         }
         return configurations;
+    }
+
+    private static void refuseRepeatedRuleKeys(String className, String problem) throws IOException {
+        if (problem != null) {
+            /* With the cause every other malformed rule has. */
+            throw new IOException("Cannot read " + className + ": " + problem, new IllegalArgumentException(problem));
+        }
     }
 
     /**
