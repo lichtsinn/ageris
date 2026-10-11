@@ -1,0 +1,3 @@
+io.github.lichtsinn.ageris.spring.AgerisAutoConfiguration
+io.github.lichtsinn.ageris.spring.AgerisHealthAutoConfiguration
+io.github.lichtsinn.ageris.spring.AgerisOpenFeatureAutoConfiguration
