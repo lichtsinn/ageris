@@ -41,6 +41,11 @@ limitations under the License.
             <artifactId>ageris-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Used directly for the JSON of a config, so not left to arrive through ageris-core. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
         <!-- Provided, so that the OpenFeature SDK an application uses is the one it chose itself. -->
         <dependency>
             <groupId>dev.openfeature</groupId>

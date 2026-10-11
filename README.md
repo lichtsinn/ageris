@@ -462,7 +462,7 @@ Client client = OpenFeatureAPI.getInstance().getClient();
 boolean active = client.getBooleanValue("enable-international-welcome", false, new ImmutableContext("joe", Map.of("environment", new Value("qa"))));
 ```
 
-The provider starts the loader, waits for the first load, and shuts the loader down when OpenFeature shuts the provider down. If the first load fails, `setProviderAndWait` throws with the reason, and lookups return the defaults the callers pass.
+The provider starts the loader, waits for the first load, and shuts the loader down when OpenFeature shuts the provider down. If the first load fails, `setProviderAndWait` throws with the reason. The loader keeps trying, and once both managers have loaded, the provider reports that it is ready. A provider that was shut down cannot be used again; create a new one.
 
 **Lookups**
 
@@ -489,7 +489,7 @@ Modifiers, contexts and [rules](#targeting) work as always, so a text or a numbe
 **Context**
 
 * The targeting key becomes the context type `user`. To use another type: `AgerisProvider.builder(featureFlagManager, jsonConfigManager).loader(loader).targetingKeyType("customer").build()`.
-* An attribute keeps its name. A text is passed as it is, and a number or a boolean as its text, so `tier = 3` matches `"3"` in a file.
+* An attribute keeps its name. A text is passed as it is, and a number or a boolean as its text, so `tier = 3` matches `"3"` in a file. A whole number has no decimal point, also when it was passed as `3.0`.
 * Dates, lists and structures are left out.
 * An attribute named like the targeting key type wins over the targeting key.
 
@@ -497,6 +497,7 @@ Modifiers, contexts and [rules](#targeting) work as always, so a text or a numbe
 
 * When a manager loads new content, the provider sends "configuration changed" with the names of that manager's entries.
 * When a refresh fails, the provider sends "stale" once, with the reason, and keeps answering from what was loaded before. It sends "ready" when both managers have loaded again.
+* A manager that is already stale when the provider is registered, which can only happen without a loader, is not reported.
 
 **Things to know**
 

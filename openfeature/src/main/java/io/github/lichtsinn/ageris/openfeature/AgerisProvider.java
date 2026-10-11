@@ -34,6 +34,7 @@ import io.github.lichtsinn.ageris.core.FeatureFlagManager;
 import io.github.lichtsinn.ageris.core.JsonConfigManager;
 
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -50,6 +51,9 @@ import java.util.function.Predicate;
  *
  * With a loader, the provider starts it when OpenFeature initializes the provider, waits for the first load, and shuts it
  * down when OpenFeature shuts the provider down. Without one it starts and stops nothing.
+ *
+ * If the first load fails, initialization fails, and the loader keeps trying: once both managers have loaded, the provider
+ * reports that it is ready. A provider that was shut down cannot be used again.
  */
 public final class AgerisProvider extends EventProvider {
 
@@ -68,8 +72,8 @@ public final class AgerisProvider extends EventProvider {
     private final ConfigurationListener listener = new Forwarder();
 
     /* Both guarded by the lock. */
-    private boolean reporting;
-    private boolean stale;
+    private Told told = Told.NOTHING;
+    private boolean closed;
 
     /**
      * Creates a provider that starts and stops the loader.
@@ -120,23 +124,29 @@ public final class AgerisProvider extends EventProvider {
      * Starts the loader, if the provider has one, and waits for the first load. Does nothing when called again.
      *
      * @param evaluationContext global evaluation context, not used
-     * @throws GeneralError if the first load fails or takes longer than the provider was told to wait
+     * @throws GeneralError if the first load fails or takes longer than the provider was told to wait, in which case the
+     *     loader keeps trying; or if the provider was shut down before
      */
     @Override
     public void initialize(EvaluationContext evaluationContext) {
+        synchronized (lock) {
+            if (closed) {
+                throw new GeneralError("This provider was shut down and cannot be used again; create a new one");
+            }
+        }
         if (!started.compareAndSet(false, true)) {
             return;
         }
         flags.addListener(listener);
         configs.addListener(listener);
-        if (loader != null) {
-            loader.start();
-            if (!loader.awaitFirstLoad(timeout)) {
-                throw new GeneralError(whyNotLoaded());
-            }
-        }
+        boolean loaded = loader == null || startAndAwait();
         synchronized (lock) {
-            reporting = true;
+            /* A load that came through just after the wait ran out counts: no later change of status would report it. */
+            loaded = loaded || isLoaded(flags.getStatus()) && isLoaded(configs.getStatus());
+            told = loaded ? Told.READY : Told.ERROR;
+        }
+        if (!loaded) {
+            throw new GeneralError(whyNotLoaded());
         }
     }
 
@@ -146,7 +156,8 @@ public final class AgerisProvider extends EventProvider {
     @Override
     public void shutdown() {
         synchronized (lock) {
-            reporting = false;
+            closed = true;
+            told = Told.NOTHING;
         }
         flags.removeListener(listener);
         configs.removeListener(listener);
@@ -193,8 +204,9 @@ public final class AgerisProvider extends EventProvider {
         }
         final JsonNode json = evaluation.getValue();
         if (!fits.test(json)) {
+            /* Without the value itself: a message ends up in logs and telemetry, and the value may be the caller's own. */
             return failed(defaultValue, ErrorCode.TYPE_MISMATCH,
-                    "JSON config " + key + " is not " + wanted + " but " + json.getNodeType().name().toLowerCase(java.util.Locale.ROOT) + ": " + json);
+                    "JSON config " + key + " is not " + wanted + " but of the JSON type " + json.getNodeType().name().toLowerCase(Locale.ROOT));
         }
         return found(read.apply(json), evaluation.getReason());
     }
@@ -213,6 +225,11 @@ public final class AgerisProvider extends EventProvider {
         return ProviderEvaluation.<T>builder().value(defaultValue).reason(Reason.ERROR.toString()).errorCode(code).errorMessage(message).build();
     }
 
+    private boolean startAndAwait() {
+        loader.start();
+        return loader.awaitFirstLoad(timeout);
+    }
+
     private String whyNotLoaded() {
         final StringBuilder why = new StringBuilder();
         for (final ConfigurationStatus status : new ConfigurationStatus[] {flags.getStatus(), configs.getStatus()}) {
@@ -220,11 +237,20 @@ public final class AgerisProvider extends EventProvider {
                 why.append(why.length() == 0 ? "" : "; ").append(status.getFailure().getMessage());
             }
         }
-        return why.length() == 0 ? "Not loaded within " + timeout : why.toString();
+        return why.length() == 0 ? "The managers of the loader did not all load within " + timeout : why.toString();
     }
 
     private static boolean isStale(ConfigurationStatus status) {
         return status.getState() == ConfigurationStatus.State.STALE;
+    }
+
+    private static boolean isLoaded(ConfigurationStatus status) {
+        return status.getState() == ConfigurationStatus.State.LOADED;
+    }
+
+    /** What OpenFeature was last told about this provider, by the outcome of its initialization or by an event. */
+    private enum Told {
+        NOTHING, READY, STALE, ERROR
     }
 
     /**
@@ -235,7 +261,7 @@ public final class AgerisProvider extends EventProvider {
         @Override
         public void onUpdate(ConfigurationUpdate update) {
             synchronized (lock) {
-                if (reporting) {
+                if (told == Told.READY || told == Told.STALE) {
                     emitProviderConfigurationChanged(ProviderEventDetails.builder().flagsChanged(update.getConfigurationNames()).build());
                 }
             }
@@ -244,14 +270,16 @@ public final class AgerisProvider extends EventProvider {
         @Override
         public void onStatusChange(ConfigurationStatus status) {
             synchronized (lock) {
-                final boolean staleNow = isStale(flags.getStatus()) || isStale(configs.getStatus());
-                if (reporting && staleNow && !stale) {
+                final boolean stale = isStale(flags.getStatus()) || isStale(configs.getStatus());
+                final boolean loaded = isLoaded(flags.getStatus()) && isLoaded(configs.getStatus());
+                if (told == Told.READY && stale) {
                     final Exception failure = status.getFailure();
                     emitProviderStale(ProviderEventDetails.builder().message(failure == null ? null : failure.getMessage()).build());
-                } else if (reporting && !staleNow && stale) {
+                    told = Told.STALE;
+                } else if (told == Told.STALE && !stale || told == Told.ERROR && loaded) {
                     emitProviderReady(ProviderEventDetails.builder().build());
+                    told = Told.READY;
                 }
-                stale = staleNow;
             }
         }
     }

@@ -176,6 +176,9 @@ public class AgerisProviderLookupTest {
         Assert.assertTrue(message, message.contains("max-items"));
         Assert.assertTrue(message, message.contains("a text"));
         Assert.assertTrue(message, message.contains("number"));
+        Assert.assertFalse("The value itself stays out of the message: " + message, message.contains("10"));
+        String forObject = client.getStringDetails("limits", "default").getErrorMessage();
+        Assert.assertFalse("The value itself stays out of the message: " + forObject, forObject.contains("hosts"));
     }
 
     @Test

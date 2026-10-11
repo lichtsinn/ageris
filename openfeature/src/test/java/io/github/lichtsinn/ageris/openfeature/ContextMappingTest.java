@@ -60,7 +60,12 @@ public class ContextMappingTest {
         attributes.put("ratio", new Value(2.5));
         attributes.put("whole", new Value(3.0));
         attributes.put("account", new Value(12345678901.0));
-        attributes.put("huge", new Value(1e300));
+        attributes.put("huge", new Value(1e20));
+        attributes.put("precise", new Value(12345678.9));
+        attributes.put("long", new Value(1234567890123456.0));
+        attributes.put("small", new Value(0.00001));
+        attributes.put("zero", new Value(0.0));
+        attributes.put("negative", new Value(-3.0));
         attributes.put("beta", new Value(true));
 
         ConfigurationContext context = ContextMapping.toAgeris(new ImmutableContext(attributes), "user");
@@ -70,8 +75,22 @@ public class ContextMappingTest {
         Assert.assertEquals("2.5", context.get("ratio"));
         Assert.assertEquals("3", context.get("whole"));
         Assert.assertEquals("12345678901", context.get("account"));
-        Assert.assertEquals("1.0E300", context.get("huge"));
+        Assert.assertEquals("100000000000000000000", context.get("huge"));
+        Assert.assertEquals("12345678.9", context.get("precise"));
+        Assert.assertEquals("1234567890123456", context.get("long"));
+        Assert.assertEquals("0.00001", context.get("small"));
+        Assert.assertEquals("0", context.get("zero"));
+        Assert.assertEquals("-3", context.get("negative"));
         Assert.assertEquals("true", context.get("beta"));
+    }
+
+    @Test
+    public void testNumbersThatAreNotNumbersAreLeftOut() {
+        Map<String, Value> attributes = new HashMap<>();
+        attributes.put("nan", new Value(Double.NaN));
+        attributes.put("infinite", new Value(Double.POSITIVE_INFINITY));
+
+        Assert.assertEquals(new ConfigurationContext(), ContextMapping.toAgeris(new ImmutableContext(attributes), "user"));
     }
 
     @Test

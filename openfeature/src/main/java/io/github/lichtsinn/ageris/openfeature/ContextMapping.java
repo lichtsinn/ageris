@@ -19,15 +19,13 @@ import dev.openfeature.sdk.EvaluationContext;
 import dev.openfeature.sdk.Value;
 import io.github.lichtsinn.ageris.core.ConfigurationContext;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 /**
  * Turns the evaluation context of an OpenFeature caller into the configuration context Ageris evaluates with.
  */
 final class ContextMapping {
-
-    /** Above this a double no longer holds every whole number, so it is written as a double. */
-    private static final double WHOLE_LIMIT = 1e15;
 
     private ContextMapping() {
         // Static methods only.
@@ -75,14 +73,16 @@ final class ContextMapping {
         return text;
     }
 
-    /** A whole number is written without a decimal point, also when the caller passed it as a double. */
+    /**
+     * A number is written the way a file would hold it: digits, without an exponent, and without a decimal point where it is
+     * whole, also when the caller passed it as a double. What is not a number at all, such as infinity, has no text.
+     */
     private static String number(Object number) {
-        if (number instanceof Double) {
-            final double decimal = (Double) number;
-            if (decimal % 1 == 0 && Math.abs(decimal) < WHOLE_LIMIT) {
-                return Long.toString((long) decimal);
-            }
+        final boolean decimal = number instanceof Double || number instanceof Float || number instanceof BigDecimal;
+        if (decimal && !Double.isFinite(((Number) number).doubleValue())) {
+            return null;
         }
-        return String.valueOf(number);
+        final String written = String.valueOf(number);
+        return decimal ? new BigDecimal(written).stripTrailingZeros().toPlainString() : written;
     }
 }

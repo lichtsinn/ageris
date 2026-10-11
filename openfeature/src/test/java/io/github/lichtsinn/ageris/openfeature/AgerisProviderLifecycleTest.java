@@ -108,6 +108,66 @@ public class AgerisProviderLifecycleTest {
     }
 
     @Test
+    public void testProviderRecoversAfterAFailedFirstLoad() throws InterruptedException {
+        flagContent.set(BAD_FLAGS);
+        setUpAgeris(true);
+        try {
+            api.setProviderAndWait("heal", impatientProvider());
+            Assert.fail("Expected initialization to fail");
+        } catch (OpenFeatureError expected) {
+            Assert.assertEquals(ProviderState.ERROR, api.getClient("heal").getProviderState());
+        }
+        Client client = api.getClient("heal");
+        client.onProviderReady(details -> events.add("ready"));
+        client.onProviderConfigurationChanged(details -> events.add("changed " + sorted(details)));
+        client.onProviderStale(details -> events.add("stale " + details.getMessage()));
+        Mockito.verify(executor, Mockito.never()).shutdown();
+
+        /* The loader keeps trying. A refresh that fails again changes nothing; the one after the fix does. */
+        refresh();
+        flagContent.set(FLAGS);
+        refresh();
+
+        Assert.assertEquals("ready", nextEvent());
+        Assert.assertEquals("changed [one]", nextEvent());
+        Assert.assertEquals(ProviderState.READY, client.getProviderState());
+        Assert.assertTrue(client.getBooleanValue("one", false));
+        flagContent.set(BAD_FLAGS);
+        refresh();
+        Assert.assertTrue("After recovering, a stale period is reported as usual", nextEvent().startsWith("stale "));
+    }
+
+    @Test
+    public void testInitializationAfterShutdownIsRefused() {
+        setUpAgeris(true);
+        AgerisProvider provider = provider();
+        api.setProviderAndWait("again", provider);
+        provider.shutdown();
+
+        try {
+            provider.initialize(null);
+            Assert.fail("Expected initialization to be refused");
+        } catch (OpenFeatureError expected) {
+            Assert.assertTrue(expected.getMessage(), expected.getMessage().contains("was shut down"));
+        }
+    }
+
+    @Test
+    public void testProviderShutDownBeforeItWasEverInitializedCannotBeUsed() {
+        setUpAgeris(true);
+        AgerisProvider provider = provider();
+        provider.shutdown();
+
+        try {
+            api.setProviderAndWait("late", provider);
+            Assert.fail("Expected initialization to be refused");
+        } catch (OpenFeatureError expected) {
+            Assert.assertTrue(expected.getMessage(), expected.getMessage().contains("was shut down"));
+        }
+        Assert.assertTrue("The loader was not started", refreshes.isEmpty());
+    }
+
+    @Test
     public void testFirstLoadThatDoesNotHappenInTimeFailsInitialization() {
         setUpAgeris(false);
 
@@ -115,7 +175,7 @@ public class AgerisProviderLifecycleTest {
             api.setProviderAndWait("slow", impatientProvider());
             Assert.fail("Expected initialization to fail");
         } catch (OpenFeatureError expected) {
-            Assert.assertTrue(expected.getMessage(), expected.getMessage().contains("Not loaded within PT0.05S"));
+            Assert.assertTrue(expected.getMessage(), expected.getMessage().contains("did not all load within PT0.05S"));
         }
     }
 
