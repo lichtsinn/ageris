@@ -37,6 +37,7 @@ Ageris runs inside your application. It needs no server: it reads [configuration
 * **[A wait for the first load, and a status](#waiting-for-the-first-load-and-checking-status)** that tells whether a manager has loaded or is serving an older version, and why.
 * **[Listeners](#listening-for-updates)** that are called when content or status changes.
 * **[Reasons](#finding-out-why).** A lookup can say why it returned its value, and which context matched.
+* **[OpenFeature](#using-ageris-through-openfeature).** Feature flags and JSON configs can be read through the OpenFeature API, with the `ageris-openfeature` module.
 * **[Test support](#testing-code-that-uses-ageris)** that sets feature flags, configs and policies from Java, with no files.
 
 ## Quick Start
@@ -433,6 +434,77 @@ Things to know:
 * Bindings replace any values set with `setInjectableValues` on the `ObjectMapper` you pass to Ageris; bind those objects on `Ageris` instead.
 * A policy usually has no no-argument constructor, so `getConfig` throws `ConfigInstantiationException` if the file has no entry for it.
 * A getter for a binding makes the field behind it writable from the file, and would also be serialized. Put `@JsonIgnore` on such a getter, or give the method another name such as `pricing()`.
+
+### Using Ageris through OpenFeature
+
+[OpenFeature](https://openfeature.dev) is a vendor-neutral API for feature flags. With the `ageris-openfeature` module an application can read Ageris feature flags and JSON configs through it.
+
+```xml
+<dependency>
+    <groupId>io.github.lichtsinn</groupId>
+    <artifactId>ageris-openfeature</artifactId>
+    <version>0.4.0</version>
+</dependency>
+```
+
+The module brings `ageris-core` with it. It does not bring the OpenFeature SDK: the application adds `dev.openfeature:sdk` itself, in version 1.16.0 or later.
+
+Set up Ageris as in [Initializing Ageris](#initializing-ageris), with `createLoader` instead of `createAndStartLoader`, and hand the two managers and the loader to the provider:
+
+```Java
+FeatureFlagManager featureFlagManager = ageris.addFeatureFlagManager("myapp").registerFile("/featureflags.json").build();
+JsonConfigManager jsonConfigManager = ageris.addJsonConfigManager("myapp").registerFile("/configs.json").build();
+ConfigurationLoader loader = ageris.createLoader(Duration.ofSeconds(10));
+
+OpenFeatureAPI.getInstance().setProviderAndWait(new AgerisProvider(featureFlagManager, jsonConfigManager, loader));
+
+Client client = OpenFeatureAPI.getInstance().getClient();
+boolean active = client.getBooleanValue("enable-international-welcome", false, new ImmutableContext("joe", Map.of("environment", new Value("qa"))));
+```
+
+The provider starts the loader, waits for the first load, and shuts the loader down when OpenFeature shuts the provider down. If the first load fails, `setProviderAndWait` throws with the reason, and lookups return the defaults the callers pass.
+
+**Lookups**
+
+| Lookup | Answered from | The value in the file must be |
+|---|---|---|
+| Boolean | `feature-flags` | true or false |
+| Text | JSON configs | a text: `"greeting": { "value": "hello" }` |
+| Whole number | JSON configs | a whole number that fits an `int`: `"max-items": { "value": 10 }` |
+| Decimal number | JSON configs | any number: `"ratio": { "value": 0.25 }` |
+| Object | JSON configs | anything; an object becomes a structure, a list a list |
+
+Modifiers, contexts and [rules](#targeting) work as always, so a text or a number can be targeted like a feature flag.
+
+**Reasons and errors**
+
+| In Ageris | OpenFeature reports |
+|---|---|
+| The feature flag or config has no modifiers | reason `STATIC` |
+| It has modifiers, and none matched | reason `DEFAULT` |
+| A named entry or a rule matched | reason `TARGETING_MATCH` |
+| Nothing with that name is defined | the caller's default, error `FLAG_NOT_FOUND` |
+| The value is of another kind than asked for | the caller's default, error `TYPE_MISMATCH` |
+
+**Context**
+
+* The targeting key becomes the context type `user`. To use another type: `AgerisProvider.builder(featureFlagManager, jsonConfigManager).loader(loader).targetingKeyType("customer").build()`.
+* An attribute keeps its name. A text is passed as it is, and a number or a boolean as its text, so `tier = 3` matches `"3"` in a file.
+* Dates, lists and structures are left out.
+* An attribute named like the targeting key type wins over the targeting key.
+
+**Events**
+
+* When a manager loads new content, the provider sends "configuration changed" with the names of that manager's entries.
+* When a refresh fails, the provider sends "stale" once, with the reason, and keeps answering from what was loaded before. It sends "ready" when both managers have loaded again.
+
+**Things to know**
+
+* Configs of your own classes, and policies, are not available through OpenFeature, which cannot return an object of an application's class. Read them from the config manager as before; the same `Ageris` can serve both.
+* A boolean lookup only sees `feature-flags`. A boolean stored as a JSON config is not found by it.
+* A whole number too large for an `int` is returned as a decimal number.
+* In tests, pass the managers of `InMemoryAgeris` and no loader: `new AgerisProvider(inMemory.featureFlagManager(), inMemory.jsonConfigManager())`.
+* An application that starts and stops the loader itself also passes no loader.
 
 ### Testing code that uses Ageris
 
