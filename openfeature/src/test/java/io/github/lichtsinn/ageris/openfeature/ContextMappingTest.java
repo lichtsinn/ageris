@@ -17,6 +17,7 @@ package io.github.lichtsinn.ageris.openfeature;
 
 import dev.openfeature.sdk.ImmutableContext;
 import dev.openfeature.sdk.ImmutableStructure;
+import dev.openfeature.sdk.MutableContext;
 import dev.openfeature.sdk.Value;
 import io.github.lichtsinn.ageris.core.ConfigurationContext;
 import org.junit.Assert;
@@ -35,8 +36,9 @@ public class ContextMappingTest {
 
     @Test
     public void testNoContextIsAnEmptyContext() {
-        Assert.assertEquals(new ConfigurationContext(), ContextMapping.toAgeris(null, "user"));
-        Assert.assertEquals(new ConfigurationContext(), ContextMapping.toAgeris(new ImmutableContext(), "user"));
+        Assert.assertNull(ContextMapping.toAgeris(null, "user").get("user"));
+        Assert.assertNull(ContextMapping.toAgeris(new ImmutableContext(), "user").get("user"));
+        Assert.assertNull(ContextMapping.toAgeris(new ImmutableContext(), "user").get("environment"));
     }
 
     @Test
@@ -49,7 +51,7 @@ public class ContextMappingTest {
 
     @Test
     public void testEmptyTargetingKeyIsLeftOut() {
-        Assert.assertEquals(new ConfigurationContext(), ContextMapping.toAgeris(new ImmutableContext(""), "user"));
+        Assert.assertNull(ContextMapping.toAgeris(new ImmutableContext(""), "user").get("user"));
     }
 
     @Test
@@ -90,7 +92,35 @@ public class ContextMappingTest {
         attributes.put("nan", new Value(Double.NaN));
         attributes.put("infinite", new Value(Double.POSITIVE_INFINITY));
 
-        Assert.assertEquals(new ConfigurationContext(), ContextMapping.toAgeris(new ImmutableContext(attributes), "user"));
+        ConfigurationContext context = ContextMapping.toAgeris(new ImmutableContext(attributes), "user");
+
+        Assert.assertNull(context.get("nan"));
+        Assert.assertNull(context.get("infinite"));
+    }
+
+    @Test
+    public void testValuesAreReadWhenTheyAreAskedFor() {
+        MutableContext caller = new MutableContext("joe");
+        ConfigurationContext context = ContextMapping.toAgeris(caller, "user");
+
+        caller.add("environment", "qa");
+
+        Assert.assertEquals("Nothing was copied when the context was handed over", "qa", context.get("environment"));
+        Assert.assertEquals("joe", context.get("user"));
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void testContextOfACallerCannotBeChangedThroughAgeris() {
+        ContextMapping.toAgeris(new ImmutableContext("joe"), "user").put("user", "anna");
+    }
+
+    @Test
+    public void testContextsOfTwoCallersAreNotEqual() {
+        ConfigurationContext joe = ContextMapping.toAgeris(new ImmutableContext("joe"), "user");
+        ConfigurationContext anna = ContextMapping.toAgeris(new ImmutableContext("anna"), "user");
+
+        Assert.assertNotEquals(joe, anna);
+        Assert.assertEquals(joe, joe);
     }
 
     @Test
@@ -102,9 +132,13 @@ public class ContextMappingTest {
         attributes.put("nothing", new Value());
         attributes.put("environment", new Value("qa"));
 
-        ConfigurationContext expected = new ConfigurationContext();
-        expected.put("environment", "qa");
-        Assert.assertEquals(expected, ContextMapping.toAgeris(new ImmutableContext(attributes), "user"));
+        ConfigurationContext context = ContextMapping.toAgeris(new ImmutableContext(attributes), "user");
+
+        Assert.assertNull(context.get("since"));
+        Assert.assertNull(context.get("groups"));
+        Assert.assertNull(context.get("address"));
+        Assert.assertNull(context.get("nothing"));
+        Assert.assertEquals("qa", context.get("environment"));
     }
 
     @Test

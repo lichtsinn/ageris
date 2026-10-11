@@ -20,7 +20,6 @@ import dev.openfeature.sdk.Value;
 import io.github.lichtsinn.ageris.core.ConfigurationContext;
 
 import java.math.BigDecimal;
-import java.util.Map;
 
 /**
  * Turns the evaluation context of an OpenFeature caller into the configuration context Ageris evaluates with.
@@ -34,25 +33,11 @@ final class ContextMapping {
     /**
      * @param context evaluation context of the caller, nullable
      * @param keyType context type the targeting key is put under
-     * @return configuration context with the targeting key and every attribute that has a text
+     * @return configuration context with the targeting key and every attribute that has a text; it reads them from the
+     *     caller's context when Ageris asks for them, so that nothing is copied for a lookup
      */
     static ConfigurationContext toAgeris(EvaluationContext context, String keyType) {
-        final ConfigurationContext result = new ConfigurationContext();
-        if (context == null) {
-            return result;
-        }
-        final String targetingKey = context.getTargetingKey();
-        if (targetingKey != null && !targetingKey.isEmpty()) {
-            result.put(keyType, targetingKey);
-        }
-        for (final Map.Entry<String, Value> attribute : context.asUnmodifiableMap().entrySet()) {
-            final String text = text(attribute.getValue());
-            /* The SDK also lists the targeting key as an attribute of its own name; it is already taken care of. */
-            if (text != null && !EvaluationContext.TARGETING_KEY.equals(attribute.getKey())) {
-                result.put(attribute.getKey(), text);
-            }
-        }
-        return result;
+        return context == null ? new ConfigurationContext() : new CallerContext(context, keyType);
     }
 
     /**
@@ -84,5 +69,49 @@ final class ContextMapping {
         }
         final String written = String.valueOf(number);
         return decimal ? new BigDecimal(written).stripTrailingZeros().toPlainString() : written;
+    }
+
+    /**
+     * The evaluation context of an OpenFeature caller, seen as a configuration context.
+     */
+    private static final class CallerContext extends ConfigurationContext {
+
+        private final EvaluationContext caller;
+        private final String keyType;
+
+        private CallerContext(EvaluationContext caller, String keyType) {
+            super();
+            this.caller = caller;
+            this.keyType = keyType;
+        }
+
+        @Override
+        public String get(String type) {
+            /* The SDK also lists the targeting key as an attribute of its own name; it is only reachable as the key type. */
+            if (EvaluationContext.TARGETING_KEY.equals(type)) {
+                return null;
+            }
+            final String text = text(caller.getValue(type));
+            if (text != null || !keyType.equals(type)) {
+                return text;
+            }
+            final String targetingKey = caller.getTargetingKey();
+            return targetingKey == null || targetingKey.isEmpty() ? null : targetingKey;
+        }
+
+        @Override
+        public void put(String type, String value) {
+            throw new UnsupportedOperationException("The context of an OpenFeature caller is not changed through Ageris");
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return this == other;
+        }
+
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(this);
+        }
     }
 }
