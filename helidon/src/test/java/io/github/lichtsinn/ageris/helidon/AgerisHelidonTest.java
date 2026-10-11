@@ -112,6 +112,34 @@ public class AgerisHelidonTest {
     }
 
     @Test
+    public void testSettingThatIsNeitherTrueNorFalseIsNamed() {
+        assertFails(() -> withFetcher("application", "myapp", "feature-flags.files.0", "/featureflags.json", "fail-on-first-load-failure", "maybe"),
+                "ageris.fail-on-first-load-failure must be true or false");
+    }
+
+    @Test
+    public void testFilesSetToNothingCountAsNotSet() {
+        assertFails(() -> withFetcher("application", "myapp", "feature-flags.files", ""), "set at least one of ageris.feature-flags.files");
+    }
+
+    @Test
+    public void testWholeConfigurationInPlaceOfItsAgerisPartIsPointedOut() {
+        assertFails(() -> AgerisHelidon.builder().config(config("ageris.application", "myapp", "ageris.feature-flags.files.0", "/featureflags.json"))
+                .fetcher(files.fetcher()).build(), "config.get(\"ageris\")");
+    }
+
+    @Test
+    public void testLoaderThreadsDoNotKeepTheApplicationAlive() {
+        try (AgerisHelidon ageris = withFetcher("application", "myapp", "feature-flags.files.0", "/featureflags.json")) {
+            Assert.assertTrue(ageris.featureFlagManager().isActive("enable-checkout", NO_CONTEXT));
+            List<Thread> loaders = Thread.getAllStackTraces().keySet().stream().filter(thread -> thread.getName().startsWith("ageris-loader-")).toList();
+
+            Assert.assertFalse("The loader has threads of its own", loaders.isEmpty());
+            Assert.assertTrue("A failed start must be able to end the application: " + loaders, loaders.stream().allMatch(Thread::isDaemon));
+        }
+    }
+
+    @Test
     public void testMissingFileSaysSo() {
         assertFails(() -> AgerisHelidon.create(config("application", "myapp", "path", directory.getRoot().toString(),
                 "feature-flags.files.0", "/featureflags.json")), "No such file: ");

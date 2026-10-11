@@ -35,18 +35,33 @@ public class WithoutOptionalLibrariesTest {
     @Test
     public void testBothStylesWorkWithoutTheOptionalLibraries() throws IOException, InterruptedException {
         String classpath = Arrays.stream(System.getProperty("java.class.path").split(File.pathSeparator))
-                .filter(entry -> !entry.contains("openfeature") && !entry.contains("helidon-health"))
+                .filter(entry -> !isOptional(new File(entry)))
                 .collect(Collectors.joining(File.pathSeparator));
         Assert.assertNotEquals("The test would prove nothing if no library was left out", System.getProperty("java.class.path"), classpath);
 
+        File log = File.createTempFile("without-optional-libraries", ".log");
         Process process = new ProcessBuilder(new File(System.getProperty("java.home"), "bin/java").getPath(), "-cp", classpath,
-                WithoutOptionalLibraries.class.getName()).redirectErrorStream(true).start();
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                WithoutOptionalLibraries.class.getName()).redirectErrorStream(true).redirectOutput(log).start();
+        boolean ended = process.waitFor(60, TimeUnit.SECONDS);
+        process.destroyForcibly();
+        String output = new String(java.nio.file.Files.readAllBytes(log.toPath()), StandardCharsets.UTF_8);
+        Assert.assertTrue(log.delete());
 
-        Assert.assertTrue(output, process.waitFor(60, TimeUnit.SECONDS));
+        Assert.assertTrue("The application did not end: " + output, ended);
         Assert.assertEquals(output, 0, process.exitValue());
+        Assert.assertTrue(output, output.contains("health library: false"));
+        Assert.assertTrue(output, output.contains("OpenFeature SDK: false"));
+        Assert.assertTrue(output, output.contains("provider of Ageris: false"));
         Assert.assertTrue(output, output.contains("imperative: true"));
         Assert.assertTrue(output, output.contains("declarative: true"));
         Assert.assertFalse(output, output.contains("NoClassDefFoundError"));
+    }
+
+    /** By the name of the jar, or for the module next door by the folders it is built into; never by the path that leads there. */
+    private static boolean isOptional(File entry) {
+        String name = entry.getName();
+        File module = entry.getParentFile() == null ? null : entry.getParentFile().getParentFile();
+        boolean nextDoor = "classes".equals(name) && module != null && "openfeature".equals(module.getName());
+        return nextDoor || name.startsWith("helidon-health") || name.startsWith("ageris-openfeature") || name.startsWith("sdk-");
     }
 }

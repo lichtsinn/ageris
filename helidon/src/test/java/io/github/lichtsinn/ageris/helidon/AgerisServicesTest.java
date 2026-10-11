@@ -16,10 +16,12 @@
 package io.github.lichtsinn.ageris.helidon;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.openfeature.sdk.FeatureProvider;
 import dev.openfeature.sdk.ImmutableContext;
 import io.github.lichtsinn.ageris.core.Ageris;
 import io.github.lichtsinn.ageris.core.ConfigManager;
 import io.github.lichtsinn.ageris.core.ConfigurationContext;
+import io.github.lichtsinn.ageris.core.ConfigurationManager;
 import io.github.lichtsinn.ageris.core.FeatureFlagManager;
 import io.github.lichtsinn.ageris.core.InMemoryAgeris;
 import io.github.lichtsinn.ageris.core.JsonConfigManager;
@@ -73,18 +75,52 @@ public class AgerisServicesTest {
     }
 
     @Test
-    public void testManagerWithoutFilesIsNamed() {
+    public void testManagerWithoutFilesIsNotOffered() {
         ServiceRegistry registry = start(application(FLAGS_AND_JSON));
 
-        AgerisHelidonTest.assertFails(() -> registry.get(ConfigManager.class), "set ageris.configs.files");
+        Assert.assertFalse(registry.first(ConfigManager.class).isPresent());
+        Assert.assertEquals("Looking for every manager finds the two that exist", 2, registry.all(ConfigurationManager.class).size());
     }
 
     @Test
-    public void testNothingIsSetUpWithoutSettingsAndTheStartDoesNotFail() {
+    public void testNothingIsOfferedWithoutSettingsAndNothingFails() {
         ServiceRegistry registry = start(ServiceRegistryConfig.builder().putContractInstance(Config.class, AgerisHelidonTest.config()));
 
-        AgerisHelidonTest.assertFails(() -> registry.get(FeatureFlagManager.class), "Ageris is not set up: set ageris.application and the files");
-        Assert.assertTrue("No health check either", registry.all(HealthCheck.class).isEmpty());
+        Assert.assertFalse(registry.first(FeatureFlagManager.class).isPresent());
+        Assert.assertTrue(registry.all(ConfigurationManager.class).isEmpty());
+        Assert.assertTrue(registry.all(HealthCheck.class).isEmpty());
+        Assert.assertTrue(registry.all(FeatureProvider.class).isEmpty());
+        Assert.assertFalse("Asking twice changes nothing", registry.first(FeatureFlagManager.class).isPresent());
+    }
+
+    @Test
+    public void testSettingThatCannotBeRightDoesNotMatterWhileNoFilesAreSet() {
+        ServiceRegistry registry = start(ServiceRegistryConfig.builder()
+                .putContractInstance(Config.class, AgerisHelidonTest.config("ageris.refresh-interval", "10s")));
+
+        Assert.assertFalse(registry.first(FeatureFlagManager.class).isPresent());
+    }
+
+    @Test
+    public void testRegistryUsesTheAgerisTheApplicationCreatedItself() {
+        ScheduledExecutorService executor = executorThatRunsTheFirstRefresh();
+        AgerisHelidon own = AgerisHelidon.builder().config(AgerisHelidonTest.config("application", "myapp",
+                "feature-flags.files.0", "/featureflags.json")).ageris(ageris(executor)).build();
+        try {
+            /* The registry of the same application: the same settings, but nothing of what the application gave its builder. */
+            ServiceRegistry registry = start(ServiceRegistryConfig.builder().putContractInstance(Config.class,
+                    AgerisHelidonTest.config("ageris.application", "myapp", "ageris.feature-flags.files.0", "/featureflags.json")));
+
+            Assert.assertSame(own.featureFlagManager(), registry.get(FeatureFlagManager.class));
+            Assert.assertEquals("One health check, for the one Ageris there is", 1, registry.all(HealthCheck.class).size());
+
+            manager.shutdown();
+            manager = null;
+            Mockito.verify(executor, Mockito.never()).shutdown();
+        } finally {
+            own.close();
+        }
+        Mockito.verify(executor, Mockito.times(1)).shutdown();
     }
 
     @Test
@@ -128,12 +164,7 @@ public class AgerisServicesTest {
 
     @Test
     public void testShutdownOfTheRegistryStopsTheLoader() {
-        ScheduledExecutorService executor = Mockito.mock(ScheduledExecutorService.class);
-        Mockito.when(executor.scheduleWithFixedDelay(ArgumentMatchers.any(Runnable.class), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(),
-                ArgumentMatchers.any(TimeUnit.class))).thenAnswer(invocation -> {
-                    invocation.<Runnable>getArgument(0).run();
-                    return null;
-                });
+        ScheduledExecutorService executor = executorThatRunsTheFirstRefresh();
         start(application(FLAGS_AND_JSON).putContractInstance(Ageris.class, ageris(executor)));
         Mockito.verify(executor, Mockito.never()).shutdown();
 
@@ -164,10 +195,11 @@ public class AgerisServicesTest {
     }
 
     @Test
-    public void testOpenFeatureProviderNeedsBothManagers() {
+    public void testOpenFeatureProviderIsNotOfferedWithoutBothManagers() {
         ServiceRegistry registry = start(application("ageris.application", "myapp", "ageris.feature-flags.files.0", "/featureflags.json"));
 
-        AgerisHelidonTest.assertFails(() -> registry.get(AgerisProvider.class), "set both ageris.feature-flags.files and ageris.json-configs.files");
+        Assert.assertFalse(registry.first(AgerisProvider.class).isPresent());
+        Assert.assertTrue(registry.all(FeatureProvider.class).isEmpty());
     }
 
     /** The registry of an application with these settings, and with a fetcher of its own that serves the files of the test. */
@@ -179,6 +211,16 @@ public class AgerisServicesTest {
     private ServiceRegistry start(ServiceRegistryConfig.Builder application) {
         manager = ServiceRegistryManager.start(application.build());
         return manager.registry();
+    }
+
+    private static ScheduledExecutorService executorThatRunsTheFirstRefresh() {
+        ScheduledExecutorService executor = Mockito.mock(ScheduledExecutorService.class);
+        Mockito.when(executor.scheduleWithFixedDelay(ArgumentMatchers.any(Runnable.class), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong(),
+                ArgumentMatchers.any(TimeUnit.class))).thenAnswer(invocation -> {
+                    invocation.<Runnable>getArgument(0).run();
+                    return null;
+                });
+        return executor;
     }
 
     private Ageris ageris(ScheduledExecutorService executor) {

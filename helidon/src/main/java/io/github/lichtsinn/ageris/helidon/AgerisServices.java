@@ -33,44 +33,52 @@ import java.util.function.Supplier;
 
 /**
  * What this module offers to an application that uses Helidon's service registry: the managers, and where their
- * libraries are present the health check and the OpenFeature provider. All of them have a low weight, so that a service
- * of the same type that the application offers wins.
+ * libraries are present the health check and the OpenFeature provider.
+ *
+ * Each of them is offered only when there is something to offer, so that an application without settings for Ageris, or
+ * without one of the libraries, can look for any of these types and simply finds nothing. All of them have a low weight,
+ * so that a service of the same type that the application offers wins.
  */
 @SuppressWarnings("PMD.MissingStaticMethodInNonInstantiatableClass") // Only a place for the services, which Helidon creates.
 final class AgerisServices {
 
     private static final double WEIGHT = Weighted.DEFAULT_WEIGHT - 10;
-    private static final String NOT_SET_UP = "Ageris is not set up: set ageris.application and the files of at least one manager, such as ";
 
     private AgerisServices() {
         // Only holds the services.
     }
 
     /**
-     * Ageris itself. It is created when the service registry starts, not at the first lookup, so that a mistake in a
-     * configuration file stops the start of the application. Without any files set it sets nothing up.
+     * Ageris itself. It has the run level of the start, so that a service registry that an application starts creates it
+     * then, and a mistake in a configuration file stops the start. It uses the Ageris an application created itself, if
+     * there is one; else it sets one up from the settings; and without any files set it sets nothing up.
      */
     @Service.Singleton
     @Service.RunLevel(Service.RunLevel.STARTUP)
     static final class Runtime {
 
         private final AgerisHelidon ageris;
+        private final boolean own;
 
         @Service.Inject
-        Runtime(Config config, List<AgerisCustomizer> customizers, Optional<ConfigurationFetcher> fetcher, Optional<Ageris> own) {
+        Runtime(Config config, List<AgerisCustomizer> customizers, Optional<ConfigurationFetcher> fetcher, Optional<Ageris> core) {
+            final Optional<AgerisHelidon> created = AgerisHelidon.createdByApplication();
             final Config settings = config.get("ageris");
-            if (Settings.from(settings).hasFiles()) {
-                final AgerisHelidon.Builder builder = AgerisHelidon.builder().config(settings).fetcher(fetcher.orElse(null)).ageris(own.orElse(null));
+            own = created.isEmpty() && Settings.hasFiles(settings);
+            if (own) {
+                final AgerisHelidon.Builder builder = AgerisHelidon.builder().forRegistry().config(settings)
+                        .fetcher(fetcher.orElse(null)).ageris(core.orElse(null));
                 customizers.forEach(builder::customize);
                 ageris = builder.build();
             } else {
-                ageris = null;
+                ageris = created.orElse(null);
             }
         }
 
+        /** Stops what this service started. An Ageris the application created is the application's to close. */
         @Service.PreDestroy
         void stop() {
-            if (ageris != null) {
+            if (own) {
                 ageris.close();
             }
         }
@@ -79,18 +87,15 @@ final class AgerisServices {
             return Optional.ofNullable(ageris);
         }
 
-        AgerisHelidon setUp(String setting) {
-            if (ageris == null) {
-                throw new IllegalStateException(NOT_SET_UP + setting);
-            }
-            return ageris;
+        Optional<Managers> managers() {
+            return ageris().map(AgerisHelidon::managers);
         }
     }
 
-    /** Offers the feature flag manager. */
+    /** Offers the feature flag manager, if files are set for it. */
     @Service.Singleton
     @Weight(WEIGHT)
-    static class FeatureFlags implements Supplier<FeatureFlagManager> {
+    static class FeatureFlags implements Supplier<Optional<FeatureFlagManager>> {
 
         private final Runtime runtime;
 
@@ -100,15 +105,15 @@ final class AgerisServices {
         }
 
         @Override
-        public FeatureFlagManager get() {
-            return runtime.setUp(Settings.FEATURE_FLAG_FILES).featureFlagManager();
+        public Optional<FeatureFlagManager> get() {
+            return runtime.managers().map(Managers::featureFlags);
         }
     }
 
-    /** Offers the config manager. */
+    /** Offers the config manager, if files are set for it. */
     @Service.Singleton
     @Weight(WEIGHT)
-    static class Configs implements Supplier<ConfigManager> {
+    static class Configs implements Supplier<Optional<ConfigManager>> {
 
         private final Runtime runtime;
 
@@ -118,15 +123,15 @@ final class AgerisServices {
         }
 
         @Override
-        public ConfigManager get() {
-            return runtime.setUp(Settings.CONFIG_FILES).configManager();
+        public Optional<ConfigManager> get() {
+            return runtime.managers().map(Managers::configs);
         }
     }
 
-    /** Offers the JSON config manager. */
+    /** Offers the JSON config manager, if files are set for it. */
     @Service.Singleton
     @Weight(WEIGHT)
-    static class JsonConfigs implements Supplier<JsonConfigManager> {
+    static class JsonConfigs implements Supplier<Optional<JsonConfigManager>> {
 
         private final Runtime runtime;
 
@@ -136,8 +141,8 @@ final class AgerisServices {
         }
 
         @Override
-        public JsonConfigManager get() {
-            return runtime.setUp(Settings.JSON_CONFIG_FILES).jsonConfigManager();
+        public Optional<JsonConfigManager> get() {
+            return runtime.managers().map(Managers::jsonConfigs);
         }
     }
 
@@ -159,10 +164,13 @@ final class AgerisServices {
         }
     }
 
-    /** Offers the OpenFeature provider, to an application that has the provider module and the OpenFeature SDK. */
+    /**
+     * Offers the OpenFeature provider, to an application that has the provider module and the OpenFeature SDK and has
+     * files set for both the feature flag manager and the JSON config manager.
+     */
     @Service.Singleton
     @Weight(WEIGHT)
-    static class OpenFeature implements Supplier<AgerisProvider> {
+    static class OpenFeature implements Supplier<Optional<AgerisProvider>> {
 
         private final Runtime runtime;
 
@@ -172,8 +180,14 @@ final class AgerisServices {
         }
 
         @Override
-        public AgerisProvider get() {
-            return runtime.setUp(Settings.FEATURE_FLAG_FILES).openFeatureProvider();
+        public Optional<AgerisProvider> get() {
+            final boolean both = runtime.managers().filter(managers -> managers.featureFlags() != null && managers.jsonConfigs() != null).isPresent();
+            try {
+                return both ? runtime.ageris().map(AgerisHelidon::openFeatureProvider) : Optional.empty();
+            } catch (LinkageError missing) {
+                /* The application has the OpenFeature SDK, which is why it was asked for, but not the provider of Ageris. */
+                return Optional.empty();
+            }
         }
     }
 }

@@ -61,11 +61,22 @@ record Settings(String application,
                 config.get("path").asString().orElse(""),
                 duration(config, "refresh-interval", REFRESH),
                 duration(config, "first-load-timeout", TIMEOUT),
-                config.get("fail-on-first-load-failure").asBoolean().orElse(true),
+                trueOrFalse(config, "fail-on-first-load-failure", true),
                 files(config.get("feature-flags.files")),
                 files(config.get("configs.files")),
                 files(config.get("json-configs.files")),
                 config.get("openfeature.targeting-key-type").asString().orElse("user"));
+    }
+
+    /**
+     * Looks at the files only, so that a setting that cannot be right does not matter to an application that set no files.
+     *
+     * @param config the "ageris" part of Helidon's configuration
+     * @return true if files are set for at least one manager, which is what asks for Ageris to be set up
+     */
+    static boolean hasFiles(Config config) {
+        return !files(config.get("feature-flags.files")).isEmpty() || !files(config.get("configs.files")).isEmpty()
+                || !files(config.get("json-configs.files")).isEmpty();
     }
 
     /**
@@ -105,9 +116,21 @@ record Settings(String application,
         }
     }
 
+    /** Helidon reads anything it does not know as false, which would switch a safeguard off by a slip of the pen. */
+    private static boolean trueOrFalse(Config config, String key, boolean unlessSet) {
+        final String written = config.get(key).asString().orElse("").trim();
+        if (written.isEmpty()) {
+            return unlessSet;
+        }
+        if (!"true".equalsIgnoreCase(written) && !"false".equalsIgnoreCase(written)) {
+            throw new IllegalStateException("ageris." + key + " must be true or false, but was " + written);
+        }
+        return Boolean.parseBoolean(written);
+    }
+
     private static void refuseBlank(String setting, List<String> files) {
         if (files.stream().anyMatch(String::isBlank)) {
-            throw new IllegalStateException(setting + " holds a blank file name: " + files);
+            throw new IllegalStateException(setting + " holds a blank file name: \"" + String.join("\", \"", files) + "\"");
         }
     }
 
@@ -119,6 +142,7 @@ record Settings(String application,
                 files.add(name.trim());
             }
         }
-        return List.copyOf(files);
+        /* A key with nothing behind it, as a placeholder that came to nothing leaves it, is a list that is not set. */
+        return files.size() == 1 && files.get(0).isEmpty() ? List.of() : List.copyOf(files);
     }
 }

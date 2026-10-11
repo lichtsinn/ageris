@@ -637,7 +637,7 @@ ConfigManager configManager = ageris.configManager();
 ageris.close();
 ```
 
-`create` starts the loader and returns when the managers are loaded. `close` stops the loader.
+`create` starts the loader and returns when the managers are loaded. `close` stops the loader. Hand over the `ageris` part of the configuration, not the whole of it.
 
 **Having the managers injected**
 
@@ -656,7 +656,7 @@ class Greeter {
 }
 ```
 
-Ageris is set up when the service registry starts, and stopped when it shuts down.
+Ageris is set up when the application starts the service registry, as with `ServiceRegistryManager.start(...)` or Helidon's own main class, and stopped when the registry shuts down. If the registry is only ever used without being started, Ageris is set up at the first lookup instead, and a mistake in a file shows then.
 
 **Settings**
 
@@ -671,8 +671,9 @@ Ageris is set up when the service registry starts, and stopped when it shuts dow
 | `ageris.first-load-timeout` | How long the start waits for the first attempt to load the files, written as `PT30S` | 30 seconds |
 | `ageris.fail-on-first-load-failure` | Whether the start fails when the first attempt fails or takes too long | `true` |
 
-* A manager only exists if its files are set. Asking for one without files fails with a message that names the setting.
+* A manager only exists if its files are set. `ageris.featureFlagManager()` and its two siblings fail with a message that names the setting otherwise; the service registry simply does not offer that manager.
 * With the service registry, nothing is set up while no files are set, so adding the dependency alone changes no application.
+* Helidon merges a list from several sources entry by entry. To replace a list of files from an environment variable or a system property, write the files in one text, separated by commas, in both places.
 * If the first attempt to load the files fails, the application does not start, and the error says why: a file that is not there, or the file, the entry and the problem in it. With `ageris.fail-on-first-load-failure: false` it starts anyway: lookups return defaults, and the loader keeps trying.
 
 **Stepping in**
@@ -688,9 +689,11 @@ AgerisHelidon ageris = AgerisHelidon.builder()
 
 With the service registry, offer a service of type `AgerisCustomizer` instead. In the same way a `ConfigurationFetcher` of your own replaces the directory, and an `Ageris` of your own serves for everything else, such as YAML files: hand them to the builder, or offer them as services. A manager that your application offers as a service is used instead of the one of this module.
 
+Use one of the two ways in an application, not both. If you create Ageris yourself, the services of this module use that one and set up no second; keep it open as long as the application runs.
+
 **Health**
 
-If the application has Helidon's health library, a readiness check named `ageris` reports the managers:
+If the application has Helidon's health support (`helidon-webserver-observe-health`), a readiness check named `ageris` reports the managers:
 
 | Managers | Health |
 |---|---|
@@ -698,11 +701,11 @@ If the application has Helidon's health library, a readiness check named `ageris
 | One or more stale | up, with the reason in the details |
 | One or more never loaded | down, with the reason in the details |
 
-A stale manager leaves the application up, because it still serves what it loaded before. With the service registry Helidon finds the check by itself; otherwise add `ageris.healthCheck()` to your health observer.
+A stale manager leaves the application up, because it still serves what it loaded before. Helidon's web server finds the check by itself, in both ways of setting Ageris up. `ageris.healthCheck()` returns the same check, for an application that builds its health observer by hand without Helidon's service registry.
 
 **OpenFeature**
 
-If the application also has `ageris-openfeature` and the OpenFeature SDK, and both feature flag files and JSON config files are set, an `AgerisProvider` can be injected, or taken from `ageris.openFeatureProvider()`. Registering it is left to the application:
+If the application also has `ageris-openfeature` and the OpenFeature SDK, and both feature flag files and JSON config files are set, an `AgerisProvider` can be injected, or taken from `ageris.openFeatureProvider()`. Without them the service registry does not offer one. Registering it is left to the application:
 
 ```Java
 OpenFeatureAPI.getInstance().setProvider(agerisProvider);
@@ -714,6 +717,7 @@ OpenFeatureAPI.getInstance().setProvider(agerisProvider);
 
 * This module is for Helidon SE. Helidon MP and Helidon 4 are not covered; there, set Ageris up in code as in [Initializing Ageris](#initializing-ageris).
 * It is the only module of Ageris that needs Java 27. The others need Java 17.
+* The loader of an Ageris that this module creates runs on daemon threads, so that an application whose start fails later can end.
 
 ### Testing code that uses Ageris
 

@@ -43,6 +43,11 @@ limitations under the License.
             <artifactId>ageris-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Used directly, to give Ageris a JSON mapper along with the loader threads of this module. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
         <dependency>
             <groupId>io.helidon.config</groupId>
             <artifactId>helidon-config</artifactId>
@@ -117,9 +122,22 @@ limitations under the License.
                          Java 27. The classes that Helidon generates are not ours to check. -->
                     <targetJdk>17</targetJdk>
                     <typeResolution>false</typeResolution>
+                    <!-- A file PMD cannot read, as one with newer syntax would be, fails the build, where it would
+                         otherwise be left out of the check with only a warning. -->
+                    <skipPmdError>false</skipPmdError>
                     <excludeRoots>
                         <excludeRoot>${project.build.directory}/generated-sources/annotations</excludeRoot>
                     </excludeRoots>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <!-- What Helidon generates for its service registry is no part of what an application uses. -->
+                    <sourceFileExcludes>
+                        <sourceFileExclude>**/*__ServiceDescriptor.java</sourceFileExclude>
+                    </sourceFileExcludes>
                 </configuration>
             </plugin>
             <plugin>

@@ -15,6 +15,7 @@
  */
 package io.github.lichtsinn.ageris.helidon;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.lichtsinn.ageris.core.Ageris;
 import io.github.lichtsinn.ageris.core.ConfigManager;
 import io.github.lichtsinn.ageris.core.FeatureFlagManager;
@@ -27,10 +28,17 @@ import io.helidon.config.Config;
 import io.helidon.health.HealthCheck;
 
 import java.nio.file.FileSystems;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Ageris for a Helidon SE application, set up from the "ageris" part of Helidon's configuration: the managers whose files
@@ -43,18 +51,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class AgerisHelidon implements AutoCloseable {
 
+    /** One thread for each of the three managers an application can have. */
+    private static final int LOADER_THREADS = 3;
+
+    /* The Ageris an application created itself, for the services of the service registry to find. */
+    private static final AtomicReference<AgerisHelidon> BY_APPLICATION = new AtomicReference<>();
+
     private final Settings settings;
     private final Managers managers;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     private AgerisHelidon(Builder builder) {
-        settings = Settings.from(Objects.requireNonNull(builder.config, "config"));
-        if (!settings.hasFiles()) {
+        final Config config = Objects.requireNonNull(builder.config, "config");
+        if (!Settings.hasFiles(config)) {
             throw new IllegalStateException("Nothing for Ageris to load: set at least one of " + Settings.FEATURE_FLAG_FILES + ", "
-                    + Settings.CONFIG_FILES + " and " + Settings.JSON_CONFIG_FILES);
+                    + Settings.CONFIG_FILES + " and " + Settings.JSON_CONFIG_FILES
+                    + (config.get("ageris").exists() ? ". Hand over the part of the configuration that holds them: config.get(\"ageris\")" : ""));
         }
+        settings = Settings.from(config);
         settings.check();
-        final Ageris ageris = builder.ageris == null ? new Ageris(fetcher(builder.fetcher, settings)) : builder.ageris;
+        final Ageris ageris = builder.ageris == null ? withDaemonThreads(fetcher(builder.fetcher, settings)) : builder.ageris;
         builder.customizers.forEach(customizer -> customizer.customize(ageris));
         managers = new Managers(ageris, settings);
         final boolean attempted = managers.startAndAwaitFirstAttempt(settings.firstLoadTimeout());
@@ -138,7 +154,42 @@ public final class AgerisHelidon implements AutoCloseable {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
+            BY_APPLICATION.compareAndSet(this, null);
             managers.stop();
+        }
+    }
+
+    /**
+     * @return the feature flag manager, the config manager and the JSON config manager, each null if no files are set for it
+     */
+    Managers managers() {
+        return managers;
+    }
+
+    /**
+     * @return the Ageris an application created itself and has not closed, which the services for Helidon's service
+     *     registry then use, so that an application never ends up with two
+     */
+    static Optional<AgerisHelidon> createdByApplication() {
+        return Optional.ofNullable(BY_APPLICATION.get());
+    }
+
+    /**
+     * An Ageris whose loader runs on daemon threads. Helidon does not stop what was started when a later step of the
+     * start fails, and other threads would then keep an application alive that should end and be started again.
+     */
+    @SuppressWarnings("PMD.CloseResource") // The loader of Ageris shuts the executor down when it is stopped.
+    private static Ageris withDaemonThreads(ConfigurationFetcher fetcher) {
+        final AtomicInteger count = new AtomicInteger();
+        final ScheduledExecutorService executor = Executors.newScheduledThreadPool(LOADER_THREADS, task -> {
+            final Thread thread = new Thread(task, "ageris-loader-" + count.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            return new Ageris(fetcher, executor, new ObjectMapper(), MessageDigest.getInstance("SHA-256"));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
         }
     }
 
@@ -168,6 +219,7 @@ public final class AgerisHelidon implements AutoCloseable {
         private Config config;
         private ConfigurationFetcher fetcher;
         private Ageris ageris;
+        private boolean forRegistry;
 
         private Builder() {
         }
@@ -218,7 +270,17 @@ public final class AgerisHelidon implements AutoCloseable {
          *     the application did not ask to start anyway
          */
         public AgerisHelidon build() {
-            return new AgerisHelidon(this);
+            final AgerisHelidon created = new AgerisHelidon(this);
+            if (!forRegistry) {
+                BY_APPLICATION.set(created);
+            }
+            return created;
+        }
+
+        /** Marks what the services of the service registry build themselves, which is not what an application created. */
+        Builder forRegistry() {
+            forRegistry = true;
+            return this;
         }
     }
 }

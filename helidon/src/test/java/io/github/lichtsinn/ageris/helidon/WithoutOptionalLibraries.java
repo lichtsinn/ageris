@@ -38,6 +38,9 @@ public final class WithoutOptionalLibraries {
      * @param args not used
      */
     public static void main(String[] args) {
+        System.out.println("health library: " + isPresent("io.helidon.health.HealthCheck"));
+        System.out.println("OpenFeature SDK: " + isPresent("dev.openfeature.sdk.FeatureProvider"));
+        System.out.println("provider of Ageris: " + isPresent("io.github.lichtsinn.ageris.openfeature.AgerisProvider"));
         ConfigurationFetcher fetcher = new Files().fetcher();
         Map<String, String> settings = Map.of("ageris.application", "myapp", "ageris.feature-flags.files.0", "/featureflags.json");
         Config config = Config.just(ConfigSources.create(settings));
@@ -50,5 +53,14 @@ public final class WithoutOptionalLibraries {
                 .putContractInstance(Config.class, config).putContractInstance(ConfigurationFetcher.class, fetcher).build());
         System.out.println("declarative: " + manager.registry().get(FeatureFlagManager.class).isActive("enable-checkout", new ConfigurationContext()));
         manager.shutdown();
+    }
+
+    private static boolean isPresent(String className) {
+        try {
+            Class.forName(className);
+            return true;
+        } catch (ClassNotFoundException exception) {
+            return false;
+        }
     }
 }

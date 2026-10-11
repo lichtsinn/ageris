@@ -187,7 +187,7 @@ limitations under the License.
                                              than an obscure compiler error on an older JDK. CI builds on the
                                              current LTS; anything from this floor up produces the same artifacts. -->
                                         <version>[${maven.compiler.release},)</version>
-                                        <message>Ageris compiles to Java ${maven.compiler.release} bytecode and needs a JDK of at least that version to build. CI uses Temurin 25.</message>
+                                        <message>Ageris compiles to Java ${maven.compiler.release} bytecode and needs a JDK of at least that version to build.</message>
                                     </requireJavaVersion>
                                 </rules>
                             </configuration>
@@ -427,6 +427,29 @@ limitations under the License.
             <id>release</id>
             <build>
                 <plugins>
+                    <plugin>
+                        <!-- The Helidon module is only part of the build on Java 27 or later. A release from an older
+                             JDK would publish everything else without it, and nothing would say so. -->
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>enforce-java-for-release</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireJavaVersion>
+                                            <version>[27,)</version>
+                                            <message>A release needs Java 27 or later, so that it includes the Helidon module. The other modules still come out as Java ${maven.compiler.release} code.</message>
+                                        </requireJavaVersion>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
