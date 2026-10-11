@@ -1,0 +1,15 @@
+{
+  "feature-flags": {
+    "new-greeting": {
+      "comment": "On for anna and ben, and for 20 percent of everyone else. Change the percentage while an example runs.",
+      "value": false,
+      "modifiers": {
+        "type": "user",
+        "rules": [
+          { "in": ["anna", "ben"], "value": true },
+          { "percent": 20, "value": true }
+        ]
+      }
+    }
+  }
+}

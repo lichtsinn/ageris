@@ -1,0 +1,14 @@
+{
+  "configs": {
+    "io.github.lichtsinn.ageris.example.Limits": {
+      "comment": "What a caller may do, by plan.",
+      "value": { "maxItems": 10, "regions": ["eu"] },
+      "modifiers": {
+        "type": "plan",
+        "contexts": {
+          "pro": { "value": { "maxItems": 100, "regions": ["eu", "us"] } }
+        }
+      }
+    }
+  }
+}

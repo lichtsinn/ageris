@@ -1,0 +1,19 @@
+server:
+  port: 8080
+  features:
+    observe:
+      observers:
+        health:
+          # Show each check with its details, so that the health of the application shows what Ageris has loaded.
+          details: true
+
+ageris:
+  application: myapp
+  # The folder that holds myapp/featureflags.json and myapp/configs.json, seen from where the example is started.
+  path: ../config
+  # Short, so that a change in a file shows within seconds. The default is ten seconds.
+  refresh-interval: PT2S
+  feature-flags:
+    files: ["/featureflags.json"]
+  configs:
+    files: ["/configs.json"]

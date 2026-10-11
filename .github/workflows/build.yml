@@ -42,6 +42,15 @@ jobs:
       - name: Build and verify
         run: ./mvnw -B verify
 
+      # The examples are projects of their own that use the released Ageris from Maven Central, so they are built apart.
+      - name: Build and test the Spring Boot example
+        run: ./mvnw -B -f examples/spring-boot/pom.xml verify
+
+      - name: Build and test the Helidon example
+        # Helidon 27 needs Java 27.
+        if: matrix.java == '27'
+        run: ./mvnw -B -f examples/helidon/pom.xml verify
+
       - name: Upload analysis reports
         if: always()
         uses: actions/upload-artifact@v4

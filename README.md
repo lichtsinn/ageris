@@ -44,6 +44,8 @@ Ageris runs inside your application. It needs no server: it reads [configuration
 
 ## Quick Start
 
+To see Ageris at work before reading on, run one of the two small [example applications](examples), for Helidon SE and for Spring Boot. They show a feature flag with targeting, a config, and a change in a file taking effect while the application runs.
+
 This guide describes with examples how to use Ageris.
 
 ### Using Ageris in your Java<sup>(TM)</sup> application
