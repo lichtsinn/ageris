@@ -390,6 +390,16 @@ limitations under the License.
 
     <profiles>
         <profile>
+            <!-- Helidon 27 needs Java 27, so its module is only part of the build on a JDK that can compile it. -->
+            <id>helidon</id>
+            <activation>
+                <jdk>[27,)</jdk>
+            </activation>
+            <modules>
+                <module>helidon</module>
+            </modules>
+        </profile>
+        <profile>
             <!-- A module without Java sources, such as this parent, has nothing for SpotBugs to look at. -->
             <id>no-java-sources</id>
             <activation>
