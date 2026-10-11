@@ -24,6 +24,7 @@ import io.github.lichtsinn.ageris.core.fetcher.ConfigurationFetcher;
 import io.github.lichtsinn.ageris.core.filesystem.ConfigurationFetcherMetrics;
 import io.github.lichtsinn.ageris.core.filesystem.FilesystemConfigurationFetcher;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.LazyInitializationExcludeFilter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -41,6 +42,17 @@ import java.nio.file.FileSystems;
 @EnableConfigurationProperties(AgerisProperties.class)
 public class AgerisAutoConfiguration {
 
+    private static final String NO_FETCHER = "Set ageris.path to the directory of the configuration files, or define a ConfigurationFetcher bean";
+
+    /**
+     * @return a filter that keeps the setup of Ageris out of lazy initialization: an application that turns it on would
+     *     otherwise start without loading anything, and meet a mistake in a file at its first lookup
+     */
+    @Bean
+    static LazyInitializationExcludeFilter agerisSetupIsNeverLazy() {
+        return LazyInitializationExcludeFilter.forBeanTypes(AgerisSetup.class);
+    }
+
     /**
      * @param properties the properties of the application
      * @return a fetcher that reads the configuration files from the directory the application named
@@ -49,6 +61,9 @@ public class AgerisAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnProperty("ageris.path")
     ConfigurationFetcher agerisConfigurationFetcher(AgerisProperties properties) {
+        if (properties.path().isBlank()) {
+            throw new IllegalStateException(NO_FETCHER);
+        }
         return new FilesystemConfigurationFetcher(FileSystems.getDefault(), properties.path(), false, new ConfigurationFetcherMetrics());
     }
 
@@ -61,7 +76,7 @@ public class AgerisAutoConfiguration {
     Ageris ageris(ObjectProvider<ConfigurationFetcher> fetcher) {
         final ConfigurationFetcher available = fetcher.getIfAvailable();
         if (available == null) {
-            throw new IllegalStateException("Set ageris.path to the directory of the configuration files, or define a ConfigurationFetcher bean");
+            throw new IllegalStateException(NO_FETCHER);
         }
         return new Ageris(available);
     }
@@ -78,18 +93,21 @@ public class AgerisAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
     @ConditionalOnFiles("feature-flags")
     FeatureFlagManager featureFlagManager(AgerisSetup setup) {
         return setup.featureFlagManager();
     }
 
     @Bean
+    @ConditionalOnMissingBean
     @ConditionalOnFiles("configs")
     ConfigManager configManager(AgerisSetup setup) {
         return setup.configManager();
     }
 
     @Bean
+    @ConditionalOnMissingBean
     @ConditionalOnFiles("json-configs")
     JsonConfigManager jsonConfigManager(AgerisSetup setup) {
         return setup.jsonConfigManager();

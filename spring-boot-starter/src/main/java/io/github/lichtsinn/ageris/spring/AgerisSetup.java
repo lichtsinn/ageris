@@ -17,18 +17,27 @@ package io.github.lichtsinn.ageris.spring;
 
 import io.github.lichtsinn.ageris.core.Ageris;
 import io.github.lichtsinn.ageris.core.ConfigManager;
+import io.github.lichtsinn.ageris.core.ConfigurationListener;
 import io.github.lichtsinn.ageris.core.ConfigurationLoader;
 import io.github.lichtsinn.ageris.core.ConfigurationStatus;
+import io.github.lichtsinn.ageris.core.ConfigurationUpdate;
 import io.github.lichtsinn.ageris.core.FeatureFlagManager;
 import io.github.lichtsinn.ageris.core.JsonConfigManager;
 
+import java.nio.file.NoSuchFileException;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /**
- * Builds the managers an application asked for, starts the loader and waits for the first load. The managers are handed
- * out by this object, so that no other bean gets one before it is loaded.
+ * Builds the managers an application asked for, starts the loader and waits for the first attempt to load them. The
+ * managers are handed out by this object, so that no other bean gets one before that.
  */
 final class AgerisSetup {
 
@@ -42,20 +51,93 @@ final class AgerisSetup {
     private final ConfigurationLoader loader;
 
     AgerisSetup(Ageris ageris, AgerisProperties properties, List<AgerisCustomizer> customizers) {
-        final String application = properties.application();
-        if (application == null || application.isBlank()) {
-            throw new IllegalStateException("Set ageris.application to the name of the application, as the fetcher of the configuration files uses it");
-        }
+        final String application = checked(properties);
         customizers.forEach(customizer -> customizer.customize(ageris));
         featureFlags = featureFlags(ageris, application, properties.featureFlags().files());
         configs = configs(ageris, application, properties.configs().files());
         jsonConfigs = jsonConfigs(ageris, application, properties.jsonConfigs().files());
         loader = ageris.createLoader(properties.refreshInterval());
-        loader.start();
-        if (!loader.awaitFirstLoad(properties.firstLoadTimeout()) && properties.failOnFirstLoadFailure()) {
+        final boolean attempted = startAndAwaitFirstAttempt(properties.firstLoadTimeout());
+        if (!isLoaded() && properties.failOnFirstLoadFailure()) {
             loader.shutdown();
-            throw new IllegalStateException(whyNotLoaded(properties));
+            throw new IllegalStateException(whyNotLoaded(attempted, properties));
         }
+    }
+
+    /**
+     * @return the name of the application, after checking what a file of properties can get wrong
+     */
+    private static String checked(AgerisProperties properties) {
+        final String application = properties.application();
+        if (application == null || application.isBlank()) {
+            throw new IllegalStateException("Set ageris.application to the name of the application, as the fetcher of the configuration files uses it");
+        }
+        if (properties.refreshInterval().isZero() || properties.refreshInterval().isNegative()) {
+            throw new IllegalStateException("ageris.refresh-interval must be longer than zero, but was " + properties.refreshInterval());
+        }
+        refuseBlank("ageris.feature-flags.files", properties.featureFlags().files());
+        refuseBlank("ageris.configs.files", properties.configs().files());
+        refuseBlank("ageris.json-configs.files", properties.jsonConfigs().files());
+        return application;
+    }
+
+    private static void refuseBlank(String property, List<String> files) {
+        if (files.stream().anyMatch(String::isBlank)) {
+            throw new IllegalStateException(property + " holds a blank file name: " + files);
+        }
+    }
+
+    /**
+     * Starts the loader and waits until every manager has loaded or has failed its first attempt. A first attempt that
+     * fails is an answer, so the start of an application does not sit out the whole wait because of a mistake in a file.
+     *
+     * @return false if the wait ran out before every manager had its first attempt
+     */
+    private boolean startAndAwaitFirstAttempt(Duration timeout) {
+        final CountDownLatch attempts = new CountDownLatch(statuses().size());
+        final List<Runnable> removals = new ArrayList<>();
+        if (featureFlags != null) {
+            removals.add(watch(attempts, featureFlags::addListener, featureFlags::removeListener));
+        }
+        if (configs != null) {
+            removals.add(watch(attempts, configs::addListener, configs::removeListener));
+        }
+        if (jsonConfigs != null) {
+            removals.add(watch(attempts, jsonConfigs::addListener, jsonConfigs::removeListener));
+        }
+        loader.start();
+        try {
+            return attempts.await(timeout.toNanos(), TimeUnit.NANOSECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return false;
+        } finally {
+            removals.forEach(Runnable::run);
+        }
+    }
+
+    /**
+     * @return what takes the listener off the manager again
+     */
+    private static Runnable watch(CountDownLatch attempts, Consumer<ConfigurationListener> add, Consumer<ConfigurationListener> remove) {
+        final ConfigurationListener listener = new FirstAttempt(attempts);
+        add.accept(listener);
+        return () -> remove.accept(listener);
+    }
+
+    private boolean isLoaded() {
+        return statuses().values().stream().allMatch(status -> status.getState() == ConfigurationStatus.State.LOADED);
+    }
+
+    /**
+     * @param failure why a manager could not load, not null
+     * @return the failure in words a person can use: some exceptions only carry a path or nothing at all
+     */
+    static String describe(Exception failure) {
+        if (failure instanceof NoSuchFileException) {
+            return "No such file: " + failure.getMessage();
+        }
+        return failure.getMessage() == null ? failure.toString() : failure.getMessage();
     }
 
     FeatureFlagManager featureFlagManager() {
@@ -96,16 +178,43 @@ final class AgerisSetup {
         loader.shutdown();
     }
 
-    private String whyNotLoaded(AgerisProperties properties) {
+    private String whyNotLoaded(boolean attempted, AgerisProperties properties) {
         final StringBuilder why = new StringBuilder();
         for (final ConfigurationStatus status : statuses().values()) {
             if (status.getFailure() != null) {
-                why.append(why.length() == 0 ? "" : "; ").append(status.getFailure().getMessage());
+                why.append(why.length() == 0 ? "" : "; ").append(describe(status.getFailure()));
             }
         }
-        final String reason = why.length() == 0 ? "the configuration files were not loaded within " + properties.firstLoadTimeout() : why.toString();
-        return "Ageris could not load its configuration files: " + reason
+        if (!attempted) {
+            why.append(why.length() == 0 ? "" : "; ").append("the configuration files were not loaded within ").append(properties.firstLoadTimeout());
+        }
+        return "Ageris could not load its configuration files: " + why
                 + ". Set ageris.fail-on-first-load-failure=false to start anyway, with defaults until a load succeeds";
+    }
+
+    /**
+     * Counts the first thing that happens to a manager, which is that it loads or that its first attempt fails.
+     */
+    private static final class FirstAttempt implements ConfigurationListener {
+
+        private final CountDownLatch attempts;
+        private final AtomicBoolean counted = new AtomicBoolean();
+
+        private FirstAttempt(CountDownLatch attempts) {
+            this.attempts = attempts;
+        }
+
+        @Override
+        public void onUpdate(ConfigurationUpdate update) {
+            // The change of status that comes with the first update is what counts.
+        }
+
+        @Override
+        public void onStatusChange(ConfigurationStatus status) {
+            if (counted.compareAndSet(false, true)) {
+                attempts.countDown();
+            }
+        }
     }
 
     /** Each of the three returns null where no files are set: the application did not ask for that manager. */

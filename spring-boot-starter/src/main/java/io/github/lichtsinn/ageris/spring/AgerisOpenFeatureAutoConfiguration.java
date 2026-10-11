@@ -31,7 +31,7 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration(after = AgerisAutoConfiguration.class)
 @ConditionalOnClass({AgerisProvider.class, FeatureProvider.class})
-@ConditionalOnBean({FeatureFlagManager.class, JsonConfigManager.class})
+@ConditionalOnBean({AgerisSetup.class, FeatureFlagManager.class, JsonConfigManager.class})
 public class AgerisOpenFeatureAutoConfiguration {
 
     /* Without a loader: it is started and stopped with the application, not by the provider. */

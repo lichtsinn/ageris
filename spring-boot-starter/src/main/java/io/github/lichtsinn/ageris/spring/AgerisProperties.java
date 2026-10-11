@@ -17,8 +17,10 @@ package io.github.lichtsinn.ageris.spring;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.boot.convert.DurationUnit;
 
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -26,9 +28,9 @@ import java.util.List;
  *
  * @param application Name of the application, as the fetcher of the configuration files uses it.
  * @param path Directory that holds the configuration files. Not needed if the application defines a ConfigurationFetcher bean.
- * @param refreshInterval Time between two refreshes of the configuration files.
- * @param firstLoadTimeout How long the start of the application waits for the first load of the configuration files.
- * @param failOnFirstLoadFailure Whether the application fails to start when the first load fails or takes too long.
+ * @param refreshInterval Time between two refreshes of the configuration files. A number without a unit is in seconds.
+ * @param firstLoadTimeout How long the start waits for the first attempt to load the configuration files. A number without a unit is in seconds.
+ * @param failOnFirstLoadFailure Whether the application fails to start when the first attempt to load the files fails or takes too long.
  * @param featureFlags The feature flag manager.
  * @param configs The config manager, for configs of the application's own classes and for policies.
  * @param jsonConfigs The JSON config manager.
@@ -38,8 +40,8 @@ import java.util.List;
 @SuppressWarnings("PMD.LongVariable") // The names are the names of the properties, and those are better long than unclear.
 public record AgerisProperties(String application,
                                String path,
-                               @DefaultValue("10s") Duration refreshInterval,
-                               @DefaultValue("30s") Duration firstLoadTimeout,
+                               @DefaultValue("10s") @DurationUnit(ChronoUnit.SECONDS) Duration refreshInterval,
+                               @DefaultValue("30s") @DurationUnit(ChronoUnit.SECONDS) Duration firstLoadTimeout,
                                @DefaultValue("true") boolean failOnFirstLoadFailure,
                                @DefaultValue Files featureFlags,
                                @DefaultValue Files configs,

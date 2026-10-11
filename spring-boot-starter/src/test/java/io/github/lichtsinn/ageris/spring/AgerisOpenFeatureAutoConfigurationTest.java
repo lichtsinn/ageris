@@ -19,6 +19,7 @@ import dev.openfeature.sdk.FeatureProvider;
 import dev.openfeature.sdk.ImmutableContext;
 import io.github.lichtsinn.ageris.core.FeatureFlagManager;
 import io.github.lichtsinn.ageris.core.InMemoryAgeris;
+import io.github.lichtsinn.ageris.core.JsonConfigManager;
 import io.github.lichtsinn.ageris.core.fetcher.ConfigurationFetcher;
 import io.github.lichtsinn.ageris.openfeature.AgerisProvider;
 import org.junit.Assert;
@@ -85,6 +86,17 @@ public class AgerisOpenFeatureAutoConfigurationTest {
                 .run(context -> {
                     Assert.assertNull(context.getStartupFailure());
                     Assert.assertEquals(1, context.getBeanNamesForType(FeatureFlagManager.class).length);
+                });
+    }
+
+    @Test
+    public void testApplicationWithItsOwnManagersAndNoPropertiesIsLeftAlone() {
+        InMemoryAgeris own = new InMemoryAgeris();
+
+        new ApplicationContextRunner().withConfiguration(AutoConfigurations.of(AgerisAutoConfiguration.class, AgerisOpenFeatureAutoConfiguration.class))
+                .withBean(FeatureFlagManager.class, own::featureFlagManager).withBean(JsonConfigManager.class, own::jsonConfigManager).run(context -> {
+                    Assert.assertNull(context.getStartupFailure());
+                    Assert.assertEquals(0, context.getBeanNamesForType(AgerisProvider.class).length);
                 });
     }
 

@@ -22,6 +22,7 @@ import io.github.lichtsinn.ageris.core.ConfigurationContext;
 import io.github.lichtsinn.ageris.core.ConfigurationLoader;
 import io.github.lichtsinn.ageris.core.ConfigurationStatus.State;
 import io.github.lichtsinn.ageris.core.FeatureFlagManager;
+import io.github.lichtsinn.ageris.core.InMemoryAgeris;
 import io.github.lichtsinn.ageris.core.JsonConfigManager;
 import io.github.lichtsinn.ageris.core.fetcher.ConfigurationFetcher;
 import org.junit.Assert;
@@ -30,6 +31,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
+import org.springframework.boot.LazyInitializationBeanFactoryPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -137,6 +139,78 @@ public class AgerisAutoConfigurationTest {
     public void testMissingDirectoryIsNamed() {
         runner.withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json")
                 .run(context -> assertFailure(context.getStartupFailure(), "ageris.path"));
+    }
+
+    @Test
+    public void testMissingFileSaysSo() {
+        runner.withPropertyValues("ageris.application=myapp", "ageris.path=" + directory.getRoot(), "ageris.feature-flags.files=/featureflags.json")
+                .run(context -> {
+                    assertFailure(context.getStartupFailure(), "No such file: ");
+                    assertFailure(context.getStartupFailure(), "featureflags.json");
+                });
+    }
+
+    @Test
+    public void testBlankDirectoryCountsAsMissing() {
+        runner.withPropertyValues("ageris.application=myapp", "ageris.path=", "ageris.feature-flags.files=/featureflags.json")
+                .run(context -> assertFailure(context.getStartupFailure(), "Set ageris.path"));
+    }
+
+    @Test
+    public void testBlankFileNameIsNamed() {
+        withFetcher().withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json,")
+                .run(context -> assertFailure(context.getStartupFailure(), "ageris.feature-flags.files holds a blank file name"));
+        withFetcher().withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json", "ageris.json-configs.files[0]= ")
+                .run(context -> assertFailure(context.getStartupFailure(), "ageris.json-configs.files holds a blank file name"));
+    }
+
+    @Test
+    public void testDurationWithoutAUnitIsInSeconds() {
+        withFetcher().withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json",
+                "ageris.refresh-interval=5", "ageris.first-load-timeout=7").run(context -> {
+                    Assert.assertNull(context.getStartupFailure());
+                    Assert.assertEquals(Duration.ofSeconds(5), context.getBean(AgerisProperties.class).refreshInterval());
+                    Assert.assertEquals(Duration.ofSeconds(7), context.getBean(AgerisProperties.class).firstLoadTimeout());
+                });
+    }
+
+    @Test
+    public void testRefreshIntervalThatIsNotPositiveIsNamed() {
+        withFetcher().withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json", "ageris.refresh-interval=0")
+                .run(context -> assertFailure(context.getStartupFailure(), "ageris.refresh-interval must be longer than zero"));
+    }
+
+    @Test(timeout = 20_000)
+    public void testFailedFirstLoadDoesNotWaitForTheTimeout() {
+        Files files = new Files();
+        files.put("/featureflags.json", Files.BAD_FLAGS);
+
+        /* With the default of 30 seconds: the failure of the first attempt is the answer, not the end of the wait. */
+        runner.withBean(ConfigurationFetcher.class, files::fetcher)
+                .withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json")
+                .run(context -> assertFailure(context.getStartupFailure(), "Cannot read enable-checkout: "));
+    }
+
+    @Test
+    public void testLazyInitializationDoesNotPostponeTheLoad() {
+        Files files = new Files();
+        files.put("/featureflags.json", Files.BAD_FLAGS);
+
+        runner.withInitializer(context -> context.addBeanFactoryPostProcessor(new LazyInitializationBeanFactoryPostProcessor()))
+                .withBean(ConfigurationFetcher.class, files::fetcher)
+                .withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json")
+                .run(context -> assertFailure(context.getStartupFailure(), "Cannot read enable-checkout: "));
+    }
+
+    @Test
+    public void testManagerOfTheApplicationWins() {
+        FeatureFlagManager own = new InMemoryAgeris().setFlag("only-here", true).featureFlagManager();
+
+        withFetcher().withBean(FeatureFlagManager.class, () -> own)
+                .withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json").run(context -> {
+                    Assert.assertNull(context.getStartupFailure());
+                    Assert.assertSame(own, context.getBean(FeatureFlagManager.class));
+                });
     }
 
     @Test

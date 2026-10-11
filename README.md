@@ -527,7 +527,7 @@ ageris.feature-flags.files=/featureflags.json
 ageris.configs.files=/configs.json
 ```
 
-With these, the files are read from `/etc/myapp/config/myapp/`, and the managers are beans:
+With these, the files are read from `/etc/myapp/config/myapp/`, and the managers are beans. A file name starts with a slash.
 
 ```Java
 @RestController
@@ -541,7 +541,7 @@ class HelloWorld {
 }
 ```
 
-The loader is started with the application and stopped with it. A manager is loaded before any bean receives it, so a bean can use it right away, even in its constructor.
+The loader is started with the application and stopped with it. A manager is loaded before any bean receives it, so a bean can use it right away, even in its constructor. This also holds with `spring.main.lazy-initialization=true`.
 
 **Properties**
 
@@ -552,12 +552,12 @@ The loader is started with the application and stopped with it. A manager is loa
 | `ageris.feature-flags.files` | Files of the feature flag manager | |
 | `ageris.configs.files` | Files of the config manager, for configs and policies | |
 | `ageris.json-configs.files` | Files of the JSON config manager | |
-| `ageris.refresh-interval` | Time between two refreshes | `10s` |
-| `ageris.first-load-timeout` | How long the start waits for the first load | `30s` |
-| `ageris.fail-on-first-load-failure` | Whether the application fails to start when the first load fails | `true` |
+| `ageris.refresh-interval` | Time between two refreshes. A number without a unit is in seconds. | `10s` |
+| `ageris.first-load-timeout` | How long the start waits for the first attempt to load the files | `30s` |
+| `ageris.fail-on-first-load-failure` | Whether the application fails to start when the first attempt fails or takes too long | `true` |
 
 * A manager only exists if its files are set. Without any files set, the starter creates nothing, so adding the dependency alone changes no application.
-* If the first load fails, the application does not start, and the error names the file, the entry and the problem. With `ageris.fail-on-first-load-failure=false` it starts anyway: lookups return defaults, and the loader keeps trying.
+* If the first attempt to load the files fails, the application does not start, and the error says why: a file that is not there, or the file, the entry and the problem in it. It does not wait for the timeout in that case. With `ageris.fail-on-first-load-failure=false` it starts anyway: lookups return defaults, and the loader keeps trying.
 
 **Stepping in**
 
@@ -572,6 +572,7 @@ AgerisCustomizer bindings(PricingService pricingService) {
 
 * To read the files from somewhere other than a directory, define a `ConfigurationFetcher` bean. `ageris.path` is then not needed.
 * For everything else, such as YAML files, define your own `Ageris` bean. The starter builds the managers and the loader on it.
+* A manager bean of your own, such as one from `InMemoryAgeris` in a test, is used instead of the starter's.
 
 **Health**
 

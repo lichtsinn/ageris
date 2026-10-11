@@ -31,8 +31,9 @@ limitations under the License.
     <description>Sets up Ageris in a Spring Boot application from a few properties</description>
 
     <properties>
-        <!-- The version the starter is built against. An application brings its own Spring Boot. -->
-        <spring-boot.version>4.1.1</spring-boot.version>
+        <!-- The oldest version the starter supports. It is built against that one, so that the dependency it declares never
+             raises the Spring Boot of an application; the tests are also run against newer ones. -->
+        <spring-boot.version>4.0.0</spring-boot.version>
         <openfeature.version>1.23.0</openfeature.version>
     </properties>
 

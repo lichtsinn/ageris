@@ -42,7 +42,7 @@ final class AgerisHealthIndicator implements HealthIndicator {
             loaded = loaded && status.getState() != ConfigurationStatus.State.NOT_LOADED;
             health.withDetail(manager.getKey(), status.getFailure() == null
                     ? status.getState().name()
-                    : status.getState().name() + ": " + status.getFailure().getMessage());
+                    : status.getState().name() + ": " + AgerisSetup.describe(status.getFailure()));
         }
         return loaded ? health.up().build() : health.down().build();
     }
