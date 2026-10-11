@@ -16,6 +16,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="logo/ageris-logo-tagline-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="logo/ageris-logo-tagline-light.svg">
+    <img alt="Ageris: feature flags, configuration, policies" src="logo/ageris-logo-tagline-light.svg" width="420">
+  </picture>
+</p>
+
 Ageris is a framework for feature flags, runtime configuration and policies. It relies on an easy to learn, recursive JSON structure.
 
 Ageris continues Merci, originally developed at Medallia, Inc. and released under the Apache License 2.0.
