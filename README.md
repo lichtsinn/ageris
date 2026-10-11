@@ -74,7 +74,18 @@ With Gradle:
 implementation 'io.github.lichtsinn:ageris-core:0.6.0'
 ```
 
-Ageris 0.6.0 requires Java 17 or later. Its Helidon module requires Java 27.
+#### Releases
+
+The latest release is **0.6.0**. All modules are released together under one version, and every dependency snippet in this guide names that release.
+
+| Module | Artifact | Published since | Needs |
+|---|---|---|---|
+| Core | [`ageris-core`](https://central.sonatype.com/artifact/io.github.lichtsinn/ageris-core) | 0.2.0 | Java 17 |
+| [OpenFeature](#using-ageris-through-openfeature) | [`ageris-openfeature`](https://central.sonatype.com/artifact/io.github.lichtsinn/ageris-openfeature) | 0.4.0 | Java 17 |
+| [Helidon](#using-ageris-with-helidon) | [`ageris-helidon`](https://central.sonatype.com/artifact/io.github.lichtsinn/ageris-helidon) | 0.6.0 | Java 27, Helidon 27 |
+| [Spring Boot](#using-ageris-with-spring-boot) | [`ageris-spring-boot-starter`](https://central.sonatype.com/artifact/io.github.lichtsinn/ageris-spring-boot-starter) | 0.5.0 | Java 17, Spring Boot 4.0 |
+
+This guide is the one of the `master` branch, which carries the next version as a snapshot. Snapshots are not published. What a release contains is in its [release notes](https://github.com/lichtsinn/ageris/releases), and the guide as it was at a release is at its tag, such as [v0.6.0](https://github.com/lichtsinn/ageris/blob/v0.6.0/README.md).
 
 ### Central Configuration Files
 
@@ -461,7 +472,7 @@ Things to know:
 
 ### Using Ageris through OpenFeature
 
-[OpenFeature](https://openfeature.dev) is a vendor-neutral API for feature flags. With the `ageris-openfeature` module an application can read Ageris feature flags and JSON configs through it.
+[OpenFeature](https://openfeature.dev) is a vendor-neutral API for feature flags. With the `ageris-openfeature` module an application can read Ageris feature flags and JSON configs through it. The module is published since 0.4.0.
 
 ```xml
 <dependency>
@@ -533,7 +544,7 @@ Modifiers, contexts and [rules](#targeting) work as always, so a text or a numbe
 
 ### Using Ageris with Helidon
 
-With the `ageris-helidon` module a Helidon SE application gets Ageris from Helidon's configuration. It needs Helidon 27, and with it Java 27.
+With the `ageris-helidon` module a Helidon SE application gets Ageris from Helidon's configuration. It needs Helidon 27, and with it Java 27. The module is published since 0.6.0.
 
 ```xml
 <dependency>
@@ -650,7 +661,7 @@ OpenFeatureAPI.getInstance().setProvider(agerisProvider);
 
 ### Using Ageris with Spring Boot
 
-With the `ageris-spring-boot-starter` module a Spring Boot application gets Ageris from a few properties, without setup code. It needs Spring Boot 4.0 or later.
+With the `ageris-spring-boot-starter` module a Spring Boot application gets Ageris from a few properties, without setup code. It needs Spring Boot 4.0 or later. The module is published since 0.5.0.
 
 ```xml
 <dependency>
