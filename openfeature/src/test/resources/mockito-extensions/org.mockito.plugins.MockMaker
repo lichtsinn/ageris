@@ -1,0 +1,6 @@
+# Mockito 5 defaults to the inline mock maker, which instruments the full type hierarchy of a mock and
+# cannot redefine JDK bootstrap classes. Since Java 19, ExecutorService extends AutoCloseable, so mocking
+# ScheduledExecutorService reaches java.lang.AutoCloseable and java.lang.Object and fails; mocking
+# java.nio.file.FileSystem fails for the same reason. The subclass mock maker proxies instead of
+# retransforming, which is sufficient here: every mocked type is a non-final interface or abstract class.
+mock-maker-subclass
