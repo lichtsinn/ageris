@@ -38,6 +38,7 @@ Ageris runs inside your application. It needs no server: it reads [configuration
 * **[Listeners](#listening-for-updates)** that are called when content or status changes.
 * **[Reasons](#finding-out-why).** A lookup can say why it returned its value, and which context matched.
 * **[OpenFeature](#using-ageris-through-openfeature).** Feature flags and JSON configs can be read through the OpenFeature API, with the `ageris-openfeature` module.
+* **[Spring Boot](#using-ageris-with-spring-boot).** A starter sets Ageris up from a few properties, with the managers as beans.
 * **[Test support](#testing-code-that-uses-ageris)** that sets feature flags, configs and policies from Java, with no files.
 
 ## Quick Start
@@ -506,6 +507,98 @@ Modifiers, contexts and [rules](#targeting) work as always, so a text or a numbe
 * A whole number too large for an `int` is returned as a decimal number.
 * In tests, pass the managers of `InMemoryAgeris` and no loader: `new AgerisProvider(inMemory.featureFlagManager(), inMemory.jsonConfigManager())`.
 * An application that starts and stops the loader itself also passes no loader.
+
+### Using Ageris with Spring Boot
+
+With the `ageris-spring-boot-starter` module a Spring Boot application gets Ageris from a few properties, without setup code. It needs Spring Boot 4.0 or later.
+
+```xml
+<dependency>
+    <groupId>io.github.lichtsinn</groupId>
+    <artifactId>ageris-spring-boot-starter</artifactId>
+    <version>0.5.0</version>
+</dependency>
+```
+
+```properties
+ageris.application=myapp
+ageris.path=/etc/myapp/config
+ageris.feature-flags.files=/featureflags.json
+ageris.configs.files=/configs.json
+```
+
+With these, the files are read from `/etc/myapp/config/myapp/`, and the managers are beans:
+
+```Java
+@RestController
+class HelloWorld {
+
+    private final FeatureFlagManager featureFlagManager;
+
+    HelloWorld(FeatureFlagManager featureFlagManager) {
+        this.featureFlagManager = featureFlagManager;
+    }
+}
+```
+
+The loader is started with the application and stopped with it. A manager is loaded before any bean receives it, so a bean can use it right away, even in its constructor.
+
+**Properties**
+
+| Property | Meaning | Default |
+|---|---|---|
+| `ageris.application` | Name of the application, as the fetcher uses it. Required. | |
+| `ageris.path` | Directory that holds the configuration files. Required unless the application defines a `ConfigurationFetcher` bean. | |
+| `ageris.feature-flags.files` | Files of the feature flag manager | |
+| `ageris.configs.files` | Files of the config manager, for configs and policies | |
+| `ageris.json-configs.files` | Files of the JSON config manager | |
+| `ageris.refresh-interval` | Time between two refreshes | `10s` |
+| `ageris.first-load-timeout` | How long the start waits for the first load | `30s` |
+| `ageris.fail-on-first-load-failure` | Whether the application fails to start when the first load fails | `true` |
+
+* A manager only exists if its files are set. Without any files set, the starter creates nothing, so adding the dependency alone changes no application.
+* If the first load fails, the application does not start, and the error names the file, the entry and the problem. With `ageris.fail-on-first-load-failure=false` it starts anyway: lookups return defaults, and the loader keeps trying.
+
+**Stepping in**
+
+* For the bindings of [policies](#policies), and other options such as `skipNonInstantiableConfiguration()`, define an `AgerisCustomizer` bean. It is called before the managers are built:
+
+```Java
+@Bean
+AgerisCustomizer bindings(PricingService pricingService) {
+    return ageris -> ageris.bind(PricingService.class, pricingService);
+}
+```
+
+* To read the files from somewhere other than a directory, define a `ConfigurationFetcher` bean. `ageris.path` is then not needed.
+* For everything else, such as YAML files, define your own `Ageris` bean. The starter builds the managers and the loader on it.
+
+**Health**
+
+If the application has the health support of Spring Boot, as with Actuator, its health shows Ageris:
+
+| Managers | Health |
+|---|---|
+| All loaded | `UP` |
+| One or more stale | `UP`, with the reason in the details |
+| One or more never loaded | `DOWN`, with the reason in the details |
+
+A stale manager leaves the application up, because it still serves what it loaded before. Switch the indicator off with `management.health.ageris.enabled=false`.
+
+**OpenFeature**
+
+If the application also has `ageris-openfeature` and the OpenFeature SDK, and both feature flag files and JSON config files are set, the starter offers an `AgerisProvider` bean. Registering it is left to the application:
+
+```Java
+OpenFeatureAPI.getInstance().setProvider(agerisProvider);
+```
+
+`ageris.openfeature.targeting-key-type` sets the context type for the targeting key; see [Using Ageris through OpenFeature](#using-ageris-through-openfeature).
+
+**Things to know**
+
+* Spring Boot 4 uses Jackson 3 for its own JSON, and Ageris uses Jackson 2. The two exist side by side. The Jackson annotations on your config classes are the same for both, and Ageris does not use or change Spring's JSON mapper.
+* On Spring Boot 3, set Ageris up in code as in [Initializing Ageris](#initializing-ageris).
 
 ### Testing code that uses Ageris
 
