@@ -195,16 +195,28 @@ A percentage is decided by hashing the caller's value together with the name of 
 * Raising a percentage keeps everyone who was in. Lowering it removes those who were added last.
 * Within one feature flag or config the same callers fall into a percentage at every level, so 10 percent inside 10 percent of the same context type is still those 10 percent.
 * Each feature flag or config has its own callers. Renaming it, which for a config means renaming or moving its class, changes who they are.
-* `percent` means the first so many percent, so a later rule only sees callers no earlier rule matched:
+* `percent` means the first so many percent, so a later rule only sees callers no earlier rule matched.
+
+A feature flag is on or off, so its rules split callers into two groups. A config can hold any value, so its rules can split them into more, as for a test of two new layouts against the current one:
 
 ```JSON
-"rules": [
-  { "percent": 10, "value": "A" },
-  { "percent": 30, "value": "B" }
-]
+{
+  "configs": {
+    "com.example.CheckoutConfig": {
+      "value": { "layout": "classic" },
+      "modifiers": {
+        "type": "user",
+        "rules": [
+          { "percent": 10, "value": { "layout": "compact" } },
+          { "percent": 30, "value": { "layout": "wide" } }
+        ]
+      }
+    }
+  }
+}
 ```
 
-The first 10 percent get A, the next 20 percent get B, and everyone else gets the value of the level.
+The first 10 percent of users get the compact layout, the next 20 percent get the wide one, and everyone else keeps the classic one.
 
 Upgrade every application that reads a file before using `rules` in it. An application on Ageris 0.2.0 does not know the key and cannot load the entry. It keeps the configuration it loaded before or, if it was told to skip entries it cannot load, stops serving that entry. If it was given a JSON mapper that ignores unknown properties, it loads the entry without a failure and leaves the rules out.
 
