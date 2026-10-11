@@ -39,6 +39,7 @@ Ageris runs inside your application. It needs no server: it reads [configuration
 * **[Reasons](#finding-out-why).** A lookup can say why it returned its value, and which context matched.
 * **[OpenFeature](#using-ageris-through-openfeature).** Feature flags and JSON configs can be read through the OpenFeature API, with the `ageris-openfeature` module.
 * **[Spring Boot](#using-ageris-with-spring-boot).** A starter sets Ageris up from a few properties, with the managers as beans.
+* **[Helidon](#using-ageris-with-helidon).** A module sets Ageris up from the configuration of a Helidon SE application, with the managers created in one call or injected.
 * **[Test support](#testing-code-that-uses-ageris)** that sets feature flags, configs and policies from Java, with no files.
 
 ## Quick Start
@@ -600,6 +601,119 @@ OpenFeatureAPI.getInstance().setProvider(agerisProvider);
 
 * Spring Boot 4 uses Jackson 3 for its own JSON, and Ageris uses Jackson 2. The two exist side by side. The Jackson annotations on your config classes are the same for both, and Ageris does not use or change Spring's JSON mapper.
 * On Spring Boot 3, set Ageris up in code as in [Initializing Ageris](#initializing-ageris).
+
+### Using Ageris with Helidon
+
+With the `ageris-helidon` module a Helidon SE application gets Ageris from Helidon's configuration. It needs Helidon 27, and with it Java 27.
+
+```xml
+<dependency>
+    <groupId>io.github.lichtsinn</groupId>
+    <artifactId>ageris-helidon</artifactId>
+    <version>0.6.0</version>
+</dependency>
+```
+
+```yaml
+ageris:
+  application: myapp
+  path: /etc/myapp/config
+  feature-flags:
+    files: ["/featureflags.json"]
+  configs:
+    files: ["/configs.json"]
+```
+
+With these, the files are read from `/etc/myapp/config/myapp/`. A file name starts with a slash.
+
+**Creating Ageris yourself**
+
+```Java
+AgerisHelidon ageris = AgerisHelidon.create(config.get("ageris"));
+
+FeatureFlagManager featureFlagManager = ageris.featureFlagManager();
+ConfigManager configManager = ageris.configManager();
+...
+ageris.close();
+```
+
+`create` starts the loader and returns when the managers are loaded. `close` stops the loader.
+
+**Having the managers injected**
+
+An application that uses Helidon's service registry needs no setup code. The managers can be injected:
+
+```Java
+@Service.Singleton
+class Greeter {
+
+    private final FeatureFlagManager featureFlagManager;
+
+    @Service.Inject
+    Greeter(FeatureFlagManager featureFlagManager) {
+        this.featureFlagManager = featureFlagManager;
+    }
+}
+```
+
+Ageris is set up when the service registry starts, and stopped when it shuts down.
+
+**Settings**
+
+| Setting | Meaning | Default |
+|---|---|---|
+| `ageris.application` | Name of the application, as the fetcher uses it. Required. | |
+| `ageris.path` | Directory that holds the configuration files. Required unless the application supplies a `ConfigurationFetcher`. | |
+| `ageris.feature-flags.files` | Files of the feature flag manager | |
+| `ageris.configs.files` | Files of the config manager, for configs and policies | |
+| `ageris.json-configs.files` | Files of the JSON config manager | |
+| `ageris.refresh-interval` | Time between two refreshes, written as `PT10S` | 10 seconds |
+| `ageris.first-load-timeout` | How long the start waits for the first attempt to load the files, written as `PT30S` | 30 seconds |
+| `ageris.fail-on-first-load-failure` | Whether the start fails when the first attempt fails or takes too long | `true` |
+
+* A manager only exists if its files are set. Asking for one without files fails with a message that names the setting.
+* With the service registry, nothing is set up while no files are set, so adding the dependency alone changes no application.
+* If the first attempt to load the files fails, the application does not start, and the error says why: a file that is not there, or the file, the entry and the problem in it. With `ageris.fail-on-first-load-failure: false` it starts anyway: lookups return defaults, and the loader keeps trying.
+
+**Stepping in**
+
+For the bindings of [policies](#policies) and other options, use a customizer. It is called before the managers are built.
+
+```Java
+AgerisHelidon ageris = AgerisHelidon.builder()
+        .config(config.get("ageris"))
+        .customize(core -> core.bind(PricingService.class, pricingService))
+        .build();
+```
+
+With the service registry, offer a service of type `AgerisCustomizer` instead. In the same way a `ConfigurationFetcher` of your own replaces the directory, and an `Ageris` of your own serves for everything else, such as YAML files: hand them to the builder, or offer them as services. A manager that your application offers as a service is used instead of the one of this module.
+
+**Health**
+
+If the application has Helidon's health library, a readiness check named `ageris` reports the managers:
+
+| Managers | Health |
+|---|---|
+| All loaded | up |
+| One or more stale | up, with the reason in the details |
+| One or more never loaded | down, with the reason in the details |
+
+A stale manager leaves the application up, because it still serves what it loaded before. With the service registry Helidon finds the check by itself; otherwise add `ageris.healthCheck()` to your health observer.
+
+**OpenFeature**
+
+If the application also has `ageris-openfeature` and the OpenFeature SDK, and both feature flag files and JSON config files are set, an `AgerisProvider` can be injected, or taken from `ageris.openFeatureProvider()`. Registering it is left to the application:
+
+```Java
+OpenFeatureAPI.getInstance().setProvider(agerisProvider);
+```
+
+`ageris.openfeature.targeting-key-type` sets the context type for the targeting key; see [Using Ageris through OpenFeature](#using-ageris-through-openfeature).
+
+**Things to know**
+
+* This module is for Helidon SE. Helidon MP and Helidon 4 are not covered; there, set Ageris up in code as in [Initializing Ageris](#initializing-ageris).
+* It is the only module of Ageris that needs Java 27. The others need Java 17.
 
 ### Testing code that uses Ageris
 
