@@ -36,8 +36,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -128,8 +130,8 @@ public class AgerisProviderLifecycleTest {
         flagContent.set(FLAGS);
         refresh();
 
-        Assert.assertEquals("ready", nextEvent());
-        Assert.assertEquals("changed [one]", nextEvent());
+        /* Both come from the same refresh, and OpenFeature delivers events on several threads, so either may be first. */
+        Assert.assertEquals(new HashSet<>(Arrays.asList("ready", "changed [one]")), new HashSet<>(Arrays.asList(nextEvent(), nextEvent())));
         Assert.assertEquals(ProviderState.READY, client.getProviderState());
         Assert.assertTrue(client.getBooleanValue("one", false));
         flagContent.set(BAD_FLAGS);
