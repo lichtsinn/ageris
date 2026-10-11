@@ -68,6 +68,33 @@ public class Murmur3Test {
         Assert.assertEquals(reference("a\uD83Db", 5), Murmur3.hash("a\uD83Db", 5));
     }
 
+    /** Where the number of UTF-8 bytes of a character changes, and where surrogates are or are not a pair. */
+    @Test
+    public void testValuesAtTheBoundariesOfUtf8ArePinned() {
+        assertPinned(0x42f98464, "\u007F");
+        assertPinned(0xd0548d97, "\u0080");
+        assertPinned(0x44edcf70, "\u07FF");
+        assertPinned(0xff50d636, "\u0800");
+        assertPinned(0x01e3759e, "\uD7FF");
+        assertPinned(0x5542e990, "\uE000");
+        assertPinned(0xeb5b2721, "\uFFFF");
+        assertPinned(0x4d33c3ae, "\uD800\uDC00");
+        assertPinned(0xb9597b4a, "\uDBFF\uDFFF");
+        assertPinned(0xca2d51db, "\uD83D");
+        assertPinned(0x436da830, "\uDC00\uD83D");
+        assertPinned(0x3d7ab43e, "\uD83D\uD83D\uDE00");
+        assertPinned(0xce1ad73c, "ab\u00E9");
+        assertPinned(0xbf7e21f4, "abc\u00E9");
+        assertPinned(0x4c144a19, "abcd\u00E9");
+        assertPinned(0x36a058a4, "a\u20ACb\uD83D\uDE00c");
+    }
+
+    private static void assertPinned(int expected, String text) {
+        int seed = Murmur3.hash("enable-checkout", 0);
+        Assert.assertEquals(text, expected, Murmur3.hash(text, seed));
+        Assert.assertEquals(text, reference(text, seed), Murmur3.hash(text, seed));
+    }
+
     @Test
     public void testBucketsArePinned() {
         int seed = Murmur3.hash("enable-checkout", 0);

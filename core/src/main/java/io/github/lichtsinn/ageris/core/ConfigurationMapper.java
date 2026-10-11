@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Parser for configurations.
@@ -37,6 +38,9 @@ import java.util.Map;
  * @param <T> type of configuration
  */
 public class ConfigurationMapper<T> {
+
+    /** What Jackson adds to a message when it converts a tree, which has no place in a file it could point to. */
+    private static final Pattern NO_PLACE = Pattern.compile("\\s*at \\[Source: UNKNOWN[^\\]]*\\]");
 
     private final ObjectMapper objectMapper;
     private final ConfigurationWriter<T> configurationWriter;
@@ -104,19 +108,19 @@ public class ConfigurationMapper<T> {
         if (rootJsonNode == null) {
             throw new IOException("Missing root field " + root);
         }
-        return createConfigurations(rootJsonNode, repeatedRuleKeys(content));
+        return createConfigurations(rootJsonNode, writtenProblems(content));
     }
 
     /**
      * @return name of a configuration to the problem, for the configurations with a rule that holds the same key twice
      */
-    private Map<String, String> repeatedRuleKeys(String content) throws IOException {
+    private Map<String, String> writtenProblems(String content) throws IOException {
         if (!content.contains("rules")) {
             /* A file without rules is not read a second time. */
             return Collections.emptyMap();
         }
         try (JsonParser parser = objectMapper.getFactory().createParser(content)) {
-            return RepeatedRuleKeys.find(parser, root);
+            return WrittenRules.find(parser, root);
         }
     }
 
@@ -145,7 +149,7 @@ public class ConfigurationMapper<T> {
             try {
                 Map.Entry<String, JsonNode> configurationEntry = configurationEntries.next();
                 String className = configurationEntry.getKey();
-                refuseRepeatedRuleKeys(className, repeated.get(className));
+                refuseWrittenProblem(className, repeated.get(className));
                 Configuration<T> configuration = convertValue(configurationEntry.getValue(), className);
                 configurations.put(className, configuration);
             } catch (IOException exception) {
@@ -159,7 +163,7 @@ public class ConfigurationMapper<T> {
         return configurations;
     }
 
-    private static void refuseRepeatedRuleKeys(String className, String problem) throws IOException {
+    private static void refuseWrittenProblem(String className, String problem) throws IOException {
         if (problem != null) {
             /* With the cause every other malformed rule has. */
             throw new IOException("Cannot read " + className + ": " + problem, new IllegalArgumentException(problem));
@@ -184,8 +188,15 @@ public class ConfigurationMapper<T> {
             throw new IOException("Cannot read " + className + ": no class of that name was found", exception);
         } catch (IllegalArgumentException exception) {
             //non-instantiable configuration class
-            throw new IOException("Cannot read " + className + ": " + exception.getMessage(), exception);
+            throw new IOException("Cannot read " + className + ": " + oneLine(exception.getMessage()), exception);
         }
+    }
+
+    /**
+     * @return the message without its line break and without the place in a source that Jackson cannot name here
+     */
+    private static String oneLine(String message) {
+        return message == null ? null : NO_PLACE.matcher(message).replaceAll("").replace('\n', ' ').trim();
     }
 
     /**

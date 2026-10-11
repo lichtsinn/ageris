@@ -49,6 +49,19 @@ public class TargetingLoadTest {
     }
 
     @Test
+    public void testDecimalsAreCountedAsWrittenAndNotAsADoubleKeepsThem() throws IOException {
+        assertRefused("\"rules\": [ { \"percent\": 0.10000000000000001, \"value\": true } ]", "\"percent\" may have at most two decimals");
+        assertRefused("\"rules\": [ { \"percent\": 100.00000000000000001, \"value\": true } ]", "\"percent\" may have at most two decimals");
+        assertRefused("\"contexts\": { \"joe\": { \"value\": true, \"modifiers\": { \"type\": \"plan\", \"rules\": ["
+                + " { \"percent\": 9.999999999999999999, \"value\": true } ] } } }", "\"percent\" may have at most two decimals");
+        Assert.assertEquals(1, load(flag("\"rules\": [ { \"percent\": 10.000, \"value\": true }, { \"percent\": 1e1, \"value\": true } ]")));
+        /* A percentage inside the value of a rule belongs to the application. */
+        Assert.assertEquals(1, new JsonConfigMapper("configs", false, new ObjectMapper(), new JsonConfigMetrics()).readValue(
+                "{ \"configs\": { \"limits\": { \"value\": { }, \"modifiers\": { \"type\": \"user\", \"rules\": ["
+                + " { \"in\": [\"anna\"], \"value\": { \"percent\": 0.12345 } } ] } } } }").size());
+    }
+
+    @Test
     public void testConfigWithoutAClassIsNamedToo() {
         try {
             new ConfigurationMapper<>("configs", false, new ObjectMapper(), new ConfigMetrics(), new DefaultClassFinder())
@@ -150,6 +163,8 @@ public class TargetingLoadTest {
             Assert.fail("Expected the file to be refused: " + restOfModifiers);
         } catch (IOException exception) {
             Assert.assertTrue(exception.getMessage(), exception.getMessage().startsWith("Cannot read enable-checkout: "));
+            Assert.assertFalse("One line: " + exception.getMessage(), exception.getMessage().contains("\n"));
+            Assert.assertFalse("No place in a source that has none: " + exception.getMessage(), exception.getMessage().contains("Source: UNKNOWN"));
             Assert.assertTrue(exception.getCause() instanceof IllegalArgumentException);
             Assert.assertTrue(exception.getMessage(), exception.getMessage().contains(expectedInMessage));
         }

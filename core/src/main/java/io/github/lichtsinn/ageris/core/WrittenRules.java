@@ -19,29 +19,35 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * Finds rules that hold the same key twice. A JSON mapper keeps the last of two equal keys without a word, so a rule with
- * "percent": 0 and "percent": 100 would apply to everyone. Outside of rules the last one keeps counting, as it always has.
+ * Finds what is wrong with a rule as it is written in a file, where a JSON mapper no longer shows it.
+ *
+ * A mapper keeps the last of two equal keys without a word, so a rule with "percent": 0 and "percent": 100 would apply to
+ * everyone. Outside of rules the last one keeps counting, as it always has. And a mapper usually reads a number as a double,
+ * which drops decimals beyond the sixteenth or so, so a percentage is checked for its decimals as it was written.
  */
-final class RepeatedRuleKeys {
+final class WrittenRules {
 
     private static final String MODIFIERS = "modifiers";
     private static final String CONTEXTS = "contexts";
     private static final String RULES = "rules";
+    private static final String PERCENT = "percent";
+    private static final int MAX_DECIMALS = 2;
 
-    private RepeatedRuleKeys() {
+    private WrittenRules() {
         // Static methods only.
     }
 
     /**
      * @param parser parser at the start of the content of a configuration file
      * @param root name of the root field holding the configurations
-     * @return name of a configuration to the problem found in one of its rules; empty if no rule holds a key twice
+     * @return name of a configuration to the problem found in one of its rules; empty if nothing is wrong
      * @throws IOException if the content cannot be parsed
      */
     static Map<String, String> find(JsonParser parser, String root) throws IOException {
@@ -103,13 +109,25 @@ final class RepeatedRuleKeys {
         if (keys != null && !keys.add(key)) {
             problem = "Key \"" + key + "\" appears twice in a rule";
         }
-        parser.nextToken();
+        final JsonToken token = parser.nextToken();
+        if (keys != null && PERCENT.equals(key) && token.isNumeric() && hasTooManyDecimals(parser.getText())) {
+            problem = first(problem, "\"percent\" may have at most two decimals in a rule, but was " + parser.getText());
+        }
         if (MODIFIERS.equals(key)) {
             problem = first(problem, modifiers(parser));
         } else {
             parser.skipChildren();
         }
         return problem;
+    }
+
+    private static boolean hasTooManyDecimals(String written) {
+        try {
+            return new BigDecimal(written).stripTrailingZeros().scale() > MAX_DECIMALS;
+        } catch (NumberFormatException exception) {
+            /* A way of writing a number that only some formats know. What it comes to is checked when the rule is created. */
+            return false;
+        }
     }
 
     private static String modifiers(JsonParser parser) throws IOException {

@@ -298,6 +298,26 @@ public class AgerisProviderLifecycleTest {
         Assert.assertNull("But the provider no longer listens", events.poll(SHORT.toMillis(), TimeUnit.MILLISECONDS));
     }
 
+    @Test
+    public void testWithALoaderThatRunsOnItsOwnThreads() throws InterruptedException {
+        Ageris ageris = new Ageris((fileNames, application) -> Collections.singletonMap(fileNames.get(0),
+                "/flags.json".equals(fileNames.get(0)) ? flagContent.get() : configContent.get()));
+        flags = ageris.addFeatureFlagManager("myapp").registerFile("/flags.json").build();
+        configs = ageris.addJsonConfigManager("myapp").registerFile("/configs.json").build();
+        loader = ageris.createLoader(Duration.ofMillis(20));
+        AgerisProvider provider = provider();
+
+        api.setProviderAndWait("threads", provider);
+        Client client = api.getClient("threads");
+        client.onProviderConfigurationChanged(details -> events.add("changed " + sorted(details)));
+        Assert.assertTrue(client.getBooleanValue("one", false));
+
+        flagContent.set(MORE_FLAGS);
+
+        Assert.assertEquals("changed [one, two]", nextEvent());
+        Assert.assertFalse(client.getBooleanValue("one", true));
+    }
+
     private Client startWithEvents(String domain) throws InterruptedException {
         setUpAgeris(true);
         api.setProviderAndWait(domain, provider());

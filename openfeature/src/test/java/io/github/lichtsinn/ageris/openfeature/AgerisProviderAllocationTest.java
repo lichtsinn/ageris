@@ -38,7 +38,7 @@ public class AgerisProviderAllocationTest {
 
     private static final int WARM_UP = 300_000;
     private static final int MEASURED = 200_000;
-    private static final int LIMIT = 256;
+    private static final int LIMIT = 176;
 
     private static final String FLAGS = "{ \"feature-flags\": { \"enable-checkout\": { \"value\": false, \"modifiers\": {"
             + " \"type\": \"environment\", \"contexts\": { \"qa\": { \"value\": false, \"modifiers\": {"

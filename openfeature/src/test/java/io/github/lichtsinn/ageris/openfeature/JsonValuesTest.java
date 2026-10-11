@@ -41,6 +41,15 @@ public class JsonValuesTest {
     }
 
     @Test
+    public void testWholeNumbersAtTheEdgesOfAnInt() throws IOException {
+        Assert.assertEquals(Integer.valueOf(Integer.MAX_VALUE), value("2147483647").asObject());
+        Assert.assertEquals(Integer.valueOf(Integer.MIN_VALUE), value("-2147483648").asObject());
+        Assert.assertEquals(Double.valueOf(2147483648.0), value("2147483648").asObject());
+        Assert.assertEquals(Double.valueOf(-2147483649.0), value("-2147483649").asObject());
+        Assert.assertEquals(Double.valueOf(3.0), value("3.0").asObject());
+    }
+
+    @Test
     public void testObjectsAndListsAreConvertedAllTheWayDown() throws IOException {
         Value value = value("{ \"max\": 10, \"hosts\": [\"a\", \"b\"], \"nested\": { \"on\": true, \"none\": null, \"list\": [ { \"deep\": 1.5 } ] } }");
 

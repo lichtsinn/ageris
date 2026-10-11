@@ -17,6 +17,7 @@
  */
 package io.github.lichtsinn.ageris.core;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -26,13 +27,14 @@ import java.util.Objects;
  */
 public class ConfigurationContext {
 
-    private final Map<String, String> contextMap;
+    /* Created with the first mapping, so that a subclass that takes its values from elsewhere does not pay for it. */
+    private Map<String, String> contextMap = Collections.emptyMap();
 
     /**
      * Creates empty configuration context.
      */
     public ConfigurationContext() {
-        contextMap = new LinkedHashMap<>();
+        // Nothing to set up: the context is empty until something is put into it.
     }
 
     /**
@@ -42,6 +44,9 @@ public class ConfigurationContext {
      * @param value value of mapping
      */
     public void put(String type, String value) {
+        if (contextMap.isEmpty()) {
+            contextMap = new LinkedHashMap<>();
+        }
         contextMap.put(type, value);
     }
 

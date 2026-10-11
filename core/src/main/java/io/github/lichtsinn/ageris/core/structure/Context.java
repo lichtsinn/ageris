@@ -88,7 +88,8 @@ public final class Context<T> {
     }
 
     /**
-     * Returns value object based on provided runtime context.
+     * Returns value object based on provided runtime context. A percentage in a rule is decided here as for a configuration
+     * without a name, so the callers it selects differ from those of the same context inside a named configuration.
      *
      * @param runtimeContext context, provided at runtime
      * @return value object based on runtime context

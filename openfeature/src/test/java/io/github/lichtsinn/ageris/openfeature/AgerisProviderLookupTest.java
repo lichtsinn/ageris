@@ -62,6 +62,9 @@ public class AgerisProviderLookupTest {
             + " \"max-items\": { \"value\": 10, \"modifiers\": { \"type\": \"environment\", \"contexts\": { \"qa\": { \"value\": 99 } } } },"
             + " \"ratio\": { \"value\": 0.25 },"
             + " \"too-big\": { \"value\": 12345678901 },"
+            + " \"largest\": { \"value\": 2147483647 },"
+            + " \"just-too-big\": { \"value\": 2147483648 },"
+            + " \"written-as-decimal\": { \"value\": 3.0 },"
             + " \"limits\": { \"value\": { \"max\": 10, \"hosts\": [\"a\", \"b\"] } },"
             + " \"nothing\": { \"value\": null },"
             + " \"enabled\": { \"value\": true },"
@@ -144,6 +147,10 @@ public class AgerisProviderLookupTest {
         assertDetails(client.getIntegerDetails("ratio", -1), -1, "ERROR", ErrorCode.TYPE_MISMATCH);
         assertDetails(client.getIntegerDetails("too-big", -1), -1, "ERROR", ErrorCode.TYPE_MISMATCH);
         assertDetails(client.getIntegerDetails("greeting", -1), -1, "ERROR", ErrorCode.TYPE_MISMATCH);
+        assertDetails(client.getIntegerDetails("largest", -1), Integer.MAX_VALUE, "STATIC", null);
+        assertDetails(client.getIntegerDetails("just-too-big", -1), -1, "ERROR", ErrorCode.TYPE_MISMATCH);
+        assertDetails(client.getIntegerDetails("written-as-decimal", -1), -1, "ERROR", ErrorCode.TYPE_MISMATCH);
+        assertDetails(client.getDoubleDetails("written-as-decimal", -1.0), 3.0, "STATIC", null);
     }
 
     @Test
