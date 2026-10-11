@@ -24,9 +24,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.github.lichtsinn.ageris.core.ConfigurationContext;
 import io.github.lichtsinn.ageris.core.Evaluation;
 
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * A configuration context is a sub-tree in the definition of a configuration, that defines a (default) value object of type T
@@ -56,6 +55,9 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonIgnoreProperties({"comment"})
 public final class Context<T> {
+
+    /** Room for the matches of two levels, which is as deep as most configurations go. */
+    private static final int FIRST_PAIRS = 4;
 
     /** Mandatory, default value object. */
     @JsonProperty("value")
@@ -136,15 +138,26 @@ public final class Context<T> {
         if (modifiers == null) {
             return new Evaluation<>(value, Evaluation.Reason.STATIC, Collections.emptyMap());
         }
-        Map<String, String> matches = new LinkedHashMap<>();
+        /* Context type and context value of each match, in turn: an array costs far less here than a map. */
+        String[] pairs = new String[FIRST_PAIRS];
+        int count = 0;
         Context<T> deepest = this;
         while (deepest.modifiers != null) {
-            Context<T> nested = deepest.modifiers.match(runtimeContext, seed, matches);
+            final String contextValue = runtimeContext.get(deepest.modifiers.type());
+            final Context<T> nested = contextValue == null ? null : deepest.modifiers.nested(contextValue, seed);
             if (nested == null) {
                 break;
             }
+            if (count == pairs.length) {
+                pairs = Arrays.copyOf(pairs, count * 2);
+            }
+            pairs[count++] = deepest.modifiers.type();
+            pairs[count++] = contextValue;
             deepest = nested;
         }
-        return new Evaluation<>(deepest.value, matches.isEmpty() ? Evaluation.Reason.DEFAULT : Evaluation.Reason.MATCH, matches);
+        if (count == 0) {
+            return new Evaluation<>(deepest.value, Evaluation.Reason.DEFAULT, Collections.emptyMap());
+        }
+        return Evaluation.of(deepest.value, Evaluation.Reason.MATCH, count == pairs.length ? pairs : Arrays.copyOf(pairs, count));
     }
 }

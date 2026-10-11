@@ -136,23 +136,10 @@ public final class Modifiers<T> {
     }
 
     /**
-     * Returns the nested context for a given (runtime) context and records the match, or returns null if none found.
-     *
-     * @param runtimeContext configuration context at runtime
-     * @param seed seed of the configuration, for the percentages of rules
-     * @param matches context type to context value of the modifiers that matched so far; a match is added to it
-     * @return nested context for the given configuration context, null if none found
+     * @return type of context values these modifiers look at
      */
-    Context<T> match(ConfigurationContext runtimeContext, int seed, Map<String, String> matches) {
-        final String runtimeContextValue = runtimeContext.get(type);
-        if (runtimeContextValue == null) {
-            return null;
-        }
-        final Context<T> context = nested(runtimeContextValue, seed);
-        if (context != null) {
-            matches.put(type, runtimeContextValue);
-        }
-        return context;
+    String type() {
+        return type;
     }
 
     /**
@@ -181,9 +168,11 @@ public final class Modifiers<T> {
     }
 
     /**
+     * @param runtimeContextValue the caller's value for the type of these modifiers, not null
+     * @param seed seed of the configuration, for the percentages of rules
      * @return the context of the named entry for the value, else of the first rule that matches it, else null
      */
-    private Context<T> nested(String runtimeContextValue, int seed) {
+    Context<T> nested(String runtimeContextValue, int seed) {
         Context<T> context = contexts.get(runtimeContextValue);
         /* By index, so that no iterator is created on the path of a lookup. */
         for (int index = 0; context == null && index < rules.size(); index++) {

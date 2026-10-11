@@ -40,9 +40,17 @@ public final class Evaluation<T> {
         MATCH
     }
 
+    private static final String[] NO_MATCHES = {};
+
     private final T value;
     private final Reason reason;
-    private final Map<String, String> matches;
+
+    /* Context type and context value of each match, in turn. Never changed, and never handed out. */
+    private final String[] pairs;
+
+    /* The matches as a map. Built from the pairs when it is first asked for, since many callers only want value and reason. */
+    @SuppressWarnings("PMD.AvoidUsingVolatile")
+    private volatile Map<String, String> matches;
 
     /**
      * Creates an evaluation.
@@ -61,7 +69,45 @@ public final class Evaluation<T> {
         }
         this.value = value;
         this.reason = reason;
+        this.pairs = NO_MATCHES;
         this.matches = matches.isEmpty() ? Collections.emptyMap() : Collections.unmodifiableMap(new LinkedHashMap<>(matches));
+    }
+
+    private Evaluation(T value, Reason reason, String... pairs) {
+        this.value = value;
+        this.reason = reason;
+        this.pairs = pairs;
+    }
+
+    /**
+     * Creates an evaluation from the matches written out in turn, which costs less than a map:
+     * {@code Evaluation.of(true, Reason.MATCH, "environment", "qa", "user", "joe")}.
+     *
+     * @param value the value, null if there is none
+     * @param reason why the value is the value
+     * @param typesAndValues context type and context value of each modifier that matched, outermost first
+     * @param <T> type of the value
+     * @return the evaluation
+     * @throws IllegalArgumentException if the reason is null, or if a context type comes without a value
+     */
+    @SuppressWarnings("PMD.ShortMethodName") // The usual name for a factory like this one, as in List.of.
+    public static <T> Evaluation<T> of(T value, Reason reason, String... typesAndValues) {
+        if (reason == null) {
+            throw new IllegalArgumentException("Evaluation requires a non-null reason");
+        }
+        if (typesAndValues == null || typesAndValues.length % 2 != 0) {
+            throw new IllegalArgumentException("Evaluation requires a context value for every context type");
+        }
+        return new Evaluation<>(value, reason, typesAndValues.clone());
+    }
+
+    /**
+     * @param other another value
+     * @param <U> type of the other value
+     * @return an evaluation with the other value and the reason and matches of this one
+     */
+    <U> Evaluation<U> withValue(U other) {
+        return pairs.length == 0 ? new Evaluation<>(other, reason, getMatches()) : new Evaluation<>(other, reason, pairs);
     }
 
     /**
@@ -83,11 +129,25 @@ public final class Evaluation<T> {
      *     is {@link Reason#MATCH}; unmodifiable
      */
     public Map<String, String> getMatches() {
-        return matches;
+        Map<String, String> result = matches;
+        if (result == null) {
+            /* Two threads may both build the map. Each gets a complete one, and one of the two is kept. */
+            result = asMap(pairs);
+            matches = result;
+        }
+        return result;
+    }
+
+    private static Map<String, String> asMap(String... pairs) {
+        final Map<String, String> map = new LinkedHashMap<>();
+        for (int index = 0; index < pairs.length; index += 2) {
+            map.put(pairs[index], pairs[index + 1]);
+        }
+        return map.isEmpty() ? Collections.emptyMap() : Collections.unmodifiableMap(map);
     }
 
     @Override
     public String toString() {
-        return matches.isEmpty() ? value + " (" + reason + ")" : value + " (" + reason + " " + matches + ")";
+        return getMatches().isEmpty() ? value + " (" + reason + ")" : value + " (" + reason + " " + getMatches() + ")";
     }
 }

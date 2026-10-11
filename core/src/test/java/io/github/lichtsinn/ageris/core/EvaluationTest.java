@@ -23,7 +23,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Unit tests for {@link Evaluation}.
@@ -59,6 +61,86 @@ public class EvaluationTest {
         } catch (UnsupportedOperationException expected) {
             Assert.assertEquals(1, evaluation.getMatches().size());
         }
+    }
+
+    @Test
+    public void testFactoryTakesTypesAndValuesInOrder() {
+        Evaluation<Boolean> evaluation = Evaluation.of(Boolean.TRUE, Reason.MATCH, "environment", "qa", "cluster", "eu1");
+
+        Assert.assertEquals(Boolean.TRUE, evaluation.getValue());
+        Assert.assertEquals(Reason.MATCH, evaluation.getReason());
+        Assert.assertEquals(Arrays.asList("environment", "cluster"), new ArrayList<>(evaluation.getMatches().keySet()));
+        Assert.assertEquals("qa", evaluation.getMatches().get("environment"));
+        Assert.assertEquals("true (MATCH {environment=qa, cluster=eu1})", evaluation.toString());
+    }
+
+    @Test
+    public void testFactoryWithoutMatches() {
+        Evaluation<Boolean> evaluation = Evaluation.of(Boolean.FALSE, Reason.DEFAULT);
+
+        Assert.assertEquals(Collections.emptyMap(), evaluation.getMatches());
+        Assert.assertEquals("false (DEFAULT)", evaluation.toString());
+    }
+
+    @Test
+    public void testFactoryCopiesWhatItIsGiven() {
+        String[] typesAndValues = {"environment", "qa"};
+        Evaluation<Boolean> evaluation = Evaluation.of(Boolean.TRUE, Reason.MATCH, typesAndValues);
+
+        typesAndValues[1] = "production";
+
+        Assert.assertEquals("qa", evaluation.getMatches().get("environment"));
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void testMatchesOfTheFactoryCannotBeChanged() {
+        Evaluation.of(Boolean.TRUE, Reason.MATCH, "environment", "qa").getMatches().put("user", "joe");
+    }
+
+    @Test
+    public void testMatchesAreTheSameMapOnEveryCall() {
+        Evaluation<Boolean> evaluation = Evaluation.of(Boolean.TRUE, Reason.MATCH, "environment", "qa");
+
+        Assert.assertSame(evaluation.getMatches(), evaluation.getMatches());
+    }
+
+    @Test
+    public void testMatchesAreCompleteForEveryThreadThatAsks() throws InterruptedException {
+        for (int round = 0; round < 200; round++) {
+            Evaluation<Boolean> evaluation = Evaluation.of(Boolean.TRUE, Reason.MATCH, "environment", "qa", "cluster", "eu1", "user", "joe");
+            List<Map<String, String>> seen = Collections.synchronizedList(new ArrayList<>());
+            CountDownLatch start = new CountDownLatch(1);
+            List<Thread> threads = new ArrayList<>();
+            for (int reader = 0; reader < 4; reader++) {
+                Thread thread = new Thread(() -> {
+                    try {
+                        start.await();
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                    }
+                    seen.add(new LinkedHashMap<>(evaluation.getMatches()));
+                });
+                threads.add(thread);
+                thread.start();
+            }
+            start.countDown();
+            for (Thread thread : threads) {
+                thread.join();
+            }
+            for (Map<String, String> matches : seen) {
+                Assert.assertEquals("{environment=qa, cluster=eu1, user=joe}", matches.toString());
+            }
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testFactoryRejectsATypeWithoutAValue() {
+        Evaluation.of(Boolean.TRUE, Reason.MATCH, "environment");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testFactoryRejectsANullReason() {
+        Evaluation.of(Boolean.TRUE, null);
     }
 
     @Test

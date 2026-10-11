@@ -73,6 +73,18 @@ public class LookupAllocationTest {
         Assert.assertTrue("getConfig created " + bytes + " bytes in " + MEASURED + " lookups", bytes < MEASURED / 4);
     }
 
+    @Test
+    public void testEvaluateCreatesLittle() throws IOException {
+        FeatureFlagManager flags = new FeatureFlagManager();
+        flags.updateConfigurations(new FeatureFlagMapper("feature-flags", false, new ObjectMapper(), new FeatureFlagMetrics()).readValue(FLAGS));
+        ConfigurationContext caller = context("user-9");
+
+        long bytes = bytesFor(() -> flags.evaluate("enable-checkout", caller).getValue());
+
+        /* The result and the two matches it holds. The map of matches is only built for a caller that asks for it. */
+        Assert.assertTrue("evaluate created " + bytes / MEASURED + " bytes per call", bytes / MEASURED <= 128);
+    }
+
     private void assertNoObjects(String what, FeatureFlagManager flags, String name, ConfigurationContext caller) {
         long bytes = bytesFor(() -> flags.isActive(name, caller));
 

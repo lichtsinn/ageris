@@ -48,6 +48,9 @@ public class ConfigurationContext {
     /**
      * Returns context value associated with provided context type, or null if none found.
      *
+     * This is the only method Ageris calls when it looks something up, so a subclass may override it to take the values
+     * from elsewhere, instead of copying them into a configuration context for every lookup.
+     *
      * @param type name of context type
      * @return context-value, null if none found
      */

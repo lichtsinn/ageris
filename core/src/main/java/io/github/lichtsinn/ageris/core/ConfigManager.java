@@ -143,7 +143,7 @@ public class ConfigManager implements ConfigurationManager<Object> {
     public <T> Evaluation<T> evaluate(Class<T> clazz, ConfigurationContext runtimeContext) throws ConfigInstantiationException {
         Evaluation<Object> evaluation = store.evaluate(clazz.getName(), runtimeContext, null);
         if (clazz.isInstance(evaluation.getValue())) {
-            return new Evaluation<>(clazz.cast(evaluation.getValue()), evaluation.getReason(), evaluation.getMatches());
+            return evaluation.withValue(clazz.cast(evaluation.getValue()));
         }
         return new Evaluation<>(newInstance(clazz), Evaluation.Reason.NOT_FOUND, Collections.emptyMap());
     }

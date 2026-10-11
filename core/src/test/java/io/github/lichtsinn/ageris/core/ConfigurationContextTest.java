@@ -35,6 +35,26 @@ public class ConfigurationContextTest {
     }
 
     @Test
+    public void testSubclassThatOverridesGetIsAllALookupNeeds() throws java.io.IOException {
+        /* A context that takes its values from elsewhere: nothing is ever put into it. */
+        ConfigurationContext elsewhere = new ConfigurationContext() {
+            @Override
+            public String get(String type) {
+                return "environment".equals(type) ? "qa" : "user".equals(type) ? "joe" : null;
+            }
+        };
+        String json = "{ \"feature-flags\": { \"welcome\": { \"value\": false, \"modifiers\": { \"type\": \"environment\", \"contexts\": {"
+                + " \"qa\": { \"value\": false, \"modifiers\": { \"type\": \"user\", \"contexts\": { \"joe\": { \"value\": true } },"
+                + " \"rules\": [ { \"percent\": 100, \"value\": false } ] } } } } } } }";
+        FeatureFlagManager flags = new FeatureFlagManager();
+        flags.updateConfigurations(new FeatureFlagMapper("feature-flags", false, new com.fasterxml.jackson.databind.ObjectMapper(),
+                new io.github.lichtsinn.ageris.core.metrics.FeatureFlagMetrics()).readValue(json));
+
+        Assert.assertTrue(flags.isActive("welcome", elsewhere));
+        Assert.assertEquals("{environment=qa, user=joe}", flags.evaluate("welcome", elsewhere).getMatches().toString());
+    }
+
+    @Test
     public void testEquals() {
         ConfigurationContext runtimeContext1 = new ConfigurationContext();
         runtimeContext1.put("environment", "qa");
