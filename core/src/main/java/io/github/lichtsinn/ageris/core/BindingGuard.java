@@ -41,7 +41,8 @@ import java.util.Map;
  * binding reachable, and Jackson then lets a value in the file replace the bound object, swapping a live
  * object for data:
  *
- * A binding that is also a named property. Such a class is refused.
+ * A binding that is also a named property. Such a class is refused. A record that asks for a binding is always
+ * one, since each component of a record is a property.
  *
  * A property that is written through a field, a setter, or a getter returning a collection or map, which
  * Jackson fills in place. The field that holds a binding becomes writable as soon as the class has a getter
@@ -80,8 +81,12 @@ final class BindingGuard extends BeanDeserializerModifier {
             if (isBinding(introspector, property.getConstructorParameter())
                     || isBinding(introspector, property.getField())
                     || isBinding(introspector, property.getSetter())) {
+                /* Every component of a record is a property of the file, so a record has nothing to remove. */
                 throw refusal("Property '" + property.getName() + "' of " + className
-                        + " is a binding and must not also be a property of the configuration file; remove its @JsonProperty");
+                        + " is a binding and must not also be a property of the configuration file; "
+                        + (beanDescription.getBeanClass().isRecord()
+                                ? "a record cannot receive bindings, since each of its components is such a property: make it a class"
+                                : "remove its @JsonProperty"));
             }
             if (receivesBindings && property.getConstructorParameter() == null
                     && (property.getField() != null || property.getSetter() != null || isFilledThroughGetter(property))) {

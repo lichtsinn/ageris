@@ -206,6 +206,7 @@ A percentage is decided by hashing the caller's value together with the name of 
 * Raising a percentage keeps everyone who was in. Lowering it removes those who were added last.
 * Within one feature flag or config the same callers fall into a percentage at every level, so 10 percent inside 10 percent of the same context type is still those 10 percent.
 * Each feature flag or config has its own callers. Renaming it, which for a config means renaming or moving its class, changes who they are.
+* Use `percent` with a context type that has many values, such as `user`. Under a type with few values, such as `plan` or `environment`, each value is in or out as a whole.
 * `percent` means the first so many percent, so a later rule only sees callers no earlier rule matched.
 
 A feature flag is on or off, so its rules split callers into two groups. A config can hold any value, so its rules can split them into more, as for a test of two new layouts against the current one:
@@ -401,7 +402,7 @@ Your part:
 * Write config classes as records, or with final fields and no setters. Ageris does not refuse a plain config class that has setters.
 * Copy the collections a config receives, for example with `List.copyOf`, and do not hand out ones that can be modified. Ageris does not check what a config holds.
 * To work with one version throughout a request, fetch the config once and keep it. Two separate lookups can return different versions if a file changes between them.
-* A record has no no-argument constructor, so `getConfig` throws `ConfigInstantiationException` if the file has no entry for it.
+* A record has no no-argument constructor unless you write one, so `getConfig` throws `ConfigInstantiationException` if the file has no entry for it. Give it one that holds the default values, such as `public Limits() { this(10, List.of()); }`, and `getConfig` returns those while the entry is missing. See [Releasing a change](#releasing-a-change).
 * JSON configs are Jackson nodes, which can be modified. Treat them as read-only.
 * Feature flags and configs are replaced separately. Right after a file changes, a feature flag can already be new while a config is still the previous one; see [How updates are applied](#how-updates-are-applied).
 
@@ -417,7 +418,7 @@ ageris.bind(PricingService.class, pricingService);
 ageris.bind("backupPricing", backupPricingService);   // by name, for a second object of the same type
 ```
 
-A policy is an ordinary config class. It asks for a binding with Jackson's `@JacksonInject` on a constructor parameter; parameters with `@JsonProperty` come from the configuration file as usual.
+A policy is an ordinary config class. It asks for a binding with Jackson's `@JacksonInject` on a constructor parameter; parameters with `@JsonProperty` come from the configuration file as usual. Write a policy as a class, not as a record: each component of a record is a property of the file, so Ageris refuses a record that asks for a binding.
 
 ```Java
 public class DiscountPolicy {
@@ -791,6 +792,20 @@ Each manager refreshes on its own. Its files are fetched and its entries are rep
 
 Failed updates are logged, counted in the loader metrics, and shown in the manager's status.
 
+#### Releasing a change
+
+A file is read by applications that are running, and it usually reaches them at another time than the code. So some changes need an order.
+
+| Change | Order |
+|---|---|
+| Add a feature flag | Any order, if off is today's behavior: a feature flag without an entry is off. If the entry starts as `true`, or the feature flag replaces a switch that is on, the entry goes first. |
+| Remove a feature flag | The code first: remove the check and release that everywhere. Then remove the entry. Removing the entry while an older version still runs switches the feature off there. |
+| Add a config or policy | The class first, the entry second, the code that reads it third. An entry whose class a running application does not have cannot be loaded there, and holds back that application's other updates; a config that is read without its entry throws, unless its class has a no-argument constructor. |
+| Remove a config or policy | The code that reads it first, then the entry, then the class. |
+| Use `rules` | After every application that reads the file is on 0.3.0 or later. |
+
+To add a config in one release, give its class a no-argument constructor with the values in use today. The code then runs without the entry, and the entry can follow once the release is everywhere.
+
 #### Waiting for the first load and checking status
 
 The loader starts in the background, so lookups made before the first load return defaults. To wait for it:
@@ -798,11 +813,13 @@ The loader starts in the background, so lookups made before the first load retur
 ```Java
 ConfigurationLoader loader = ageris.createAndStartLoader(Duration.ofSeconds(180));
 if (!loader.awaitFirstLoad(Duration.ofSeconds(10))) {
-    /* Not every manager has loaded. Exit, or continue on defaults. */
+    /* Not every manager has loaded. Continue on defaults, or stop the loader and exit. */
+    loader.shutdown();
+    throw new IllegalStateException("Configs not loaded: " + configManager.getStatus());
 }
 ```
 
-The wait ends once every manager has loaded and its listeners have been called for that load.
+The wait ends once every manager has loaded and its listeners have been called for that load. An application that gives up must call `loader.shutdown()` first: the loader's threads otherwise keep the JVM running.
 
 Each manager reports its status:
 

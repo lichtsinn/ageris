@@ -59,6 +59,7 @@ public class ConfigBindingsTest {
     private static final String NUMBER = PACKAGE + "NumberConfig";
     private static final String NAMED_BINDING = PACKAGE + "NamedBindingConfig";
     private static final String EXPOSED_BINDING = PACKAGE + "ExposedBindingConfig";
+    private static final String RECORD_BINDING = PACKAGE + "RecordBindingConfig";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConfigMetrics metrics = new ConfigMetrics();
@@ -162,6 +163,22 @@ public class ConfigBindingsTest {
             String messages = messages(exception);
             Assert.assertTrue(messages, messages.contains("prices"));
             Assert.assertTrue(messages, messages.contains(NAMED_BINDING));
+        }
+    }
+
+    @Test
+    public void testRecordThatAsksForABindingIsRefusedAndToldToBecomeAClass() {
+        bindings.bind(PriceSource.class, prices);
+        try {
+            read(false, RECORD_BINDING, "{ \"value\": { \"percent\": 25 } }");
+            Assert.fail("A record whose binding the file could supply must not load.");
+        } catch (IOException exception) {
+            String messages = messages(exception);
+            Assert.assertTrue(messages, messages.contains("prices"));
+            Assert.assertTrue(messages, messages.contains(RECORD_BINDING));
+            Assert.assertTrue(messages, messages.contains("a record cannot receive bindings"));
+            /* A record has no @JsonProperty to remove, so the advice for a class would mislead. */
+            Assert.assertFalse(messages, messages.contains("remove its @JsonProperty"));
         }
     }
 
