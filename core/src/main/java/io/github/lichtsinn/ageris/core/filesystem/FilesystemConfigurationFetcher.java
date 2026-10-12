@@ -83,7 +83,9 @@ public class FilesystemConfigurationFetcher implements ConfigurationFetcher {
     }
 
     private String fetch(String fileName, String application) throws IOException {
-        Path path = fileSystem.getPath(basePath + "/" + application + fileName);
+        /* A file name is written with a leading slash, as in "/featureflags.json". One without it is meant the same
+         * way; gluing it to the name of the application would look for a file that cannot be there. */
+        Path path = fileSystem.getPath(basePath + "/" + application + (fileName.startsWith("/") ? "" : "/") + fileName);
         try (InputStream inputStream = fileSystem.provider().newInputStream(path, StandardOpenOption.READ)) {
             return IOUtils.toString(inputStream, StandardCharsets.UTF_8);
         }

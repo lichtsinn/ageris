@@ -96,6 +96,26 @@ public class FilesystemConfigurationFetcherTest {
     }
 
     @Test
+    public void testFileNameWithoutALeadingSlashIsReadFromTheApplicationsFolderToo() throws IOException {
+        FileSystem fileSystem = Mockito.mock(FileSystem.class);
+        FileSystemProvider provider = Mockito.mock(FileSystemProvider.class);
+        Mockito.doReturn(Mockito.mock(Path.class)).when(fileSystem).getPath(Mockito.anyString());
+        Mockito.doReturn(provider).when(fileSystem).provider();
+        Mockito.doReturn(new ByteArrayInputStream(FILE_ONE_CONTENT.getBytes(StandardCharsets.UTF_8)))
+                .when(provider).newInputStream(Mockito.any(Path.class), Mockito.any(StandardOpenOption.class));
+        String withoutSlash = FILE_ONE.substring(1);
+
+        FilesystemConfigurationFetcher fetcher = new FilesystemConfigurationFetcher(fileSystem, BASE_PATH, false, metrics);
+        Map<String, String> content = fetcher.fetch(ImmutableList.of(withoutSlash), APPLICATION);
+
+        ArgumentCaptor<String> pathStringCaptor = ArgumentCaptor.forClass(String.class);
+        Mockito.verify(fileSystem).getPath(pathStringCaptor.capture());
+        Assert.assertEquals(BASE_PATH + "/" + APPLICATION + "/" + withoutSlash, pathStringCaptor.getValue());
+        /* The content is returned under the name as it was registered, which is what the manager asks for. */
+        Assert.assertEquals(ImmutableMap.of(withoutSlash, FILE_ONE_CONTENT), content);
+    }
+
+    @Test
     public void testFetchReturnsContentFromMultipleFiles() throws IOException {
         FileSystem fileSystem = Mockito.mock(FileSystem.class);
         FileSystemProvider provider = Mockito.mock(FileSystemProvider.class);

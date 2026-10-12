@@ -105,6 +105,10 @@ public class AgerisHelidonTest {
                 "ageris.feature-flags.files holds a blank file name");
         assertFails(() -> withFetcher("application", "myapp", "feature-flags.files.0", "/featureflags.json", "refresh-interval", "PT0S"),
                 "ageris.refresh-interval must be longer than zero");
+        assertFails(() -> withFetcher("application", "myapp", "feature-flags.files.0", "/featureflags.json", "first-load-timeout", "-PT1S"),
+                "ageris.first-load-timeout must not be negative");
+        assertFails(() -> withFetcher("application", "myapp", "feature-flags.files.0", "/featureflags.json", "first-load-timeout", "PT0S"),
+                "ageris.first-load-timeout must be longer than zero while ageris.fail-on-first-load-failure is true");
         assertFails(() -> withFetcher("application", "myapp", "feature-flags.files.0", "/featureflags.json", "refresh-interval", "10s"),
                 "ageris.refresh-interval must be a duration such as PT10S");
         assertFails(() -> withFetcher("application", "myapp", "feature-flags.files.0", "/featureflags.json", "first-load-timeout", "soon"),

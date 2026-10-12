@@ -68,10 +68,23 @@ final class AgerisSetup {
         if (properties.refreshInterval().isZero() || properties.refreshInterval().isNegative()) {
             throw new IllegalStateException("ageris.refresh-interval must be longer than zero, but was " + properties.refreshInterval());
         }
+        refuseTimeoutThatCannotBeRight(properties);
         refuseBlank("ageris.feature-flags.files", properties.featureFlags().files());
         refuseBlank("ageris.configs.files", properties.configs().files());
         refuseBlank("ageris.json-configs.files", properties.jsonConfigs().files());
         return application;
+    }
+
+    private static void refuseTimeoutThatCannotBeRight(AgerisProperties properties) {
+        final Duration timeout = properties.firstLoadTimeout();
+        if (timeout.isNegative()) {
+            throw new IllegalStateException("ageris.first-load-timeout must not be negative, but was " + timeout);
+        }
+        if (timeout.isZero() && properties.failOnFirstLoadFailure()) {
+            /* Loading takes some time, so a start that does not wait and must not go on without a load can only fail. */
+            throw new IllegalStateException("ageris.first-load-timeout must be longer than zero while ageris.fail-on-first-load-failure"
+                    + " is true; zero means not to wait, which only fits a start that goes on without a load");
+        }
     }
 
     private static void refuseBlank(String property, List<String> files) {

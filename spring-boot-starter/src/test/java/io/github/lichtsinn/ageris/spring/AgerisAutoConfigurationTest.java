@@ -175,6 +175,22 @@ public class AgerisAutoConfigurationTest {
     }
 
     @Test
+    public void testFirstLoadTimeoutThatCannotBeRightIsNamed() {
+        withFetcher().withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json", "ageris.first-load-timeout=-1")
+                .run(context -> assertFailure(context.getStartupFailure(), "ageris.first-load-timeout must not be negative"));
+        withFetcher().withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json", "ageris.first-load-timeout=0")
+                .run(context -> assertFailure(context.getStartupFailure(),
+                        "ageris.first-load-timeout must be longer than zero while ageris.fail-on-first-load-failure is true"));
+    }
+
+    @Test
+    public void testFirstLoadTimeoutOfZeroMeansDoNotWaitWhenTheStartMayGoOnWithoutALoad() {
+        withFetcher().withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json",
+                "ageris.first-load-timeout=0", "ageris.fail-on-first-load-failure=false")
+                .run(context -> Assert.assertNull(context.getStartupFailure()));
+    }
+
+    @Test
     public void testRefreshIntervalThatIsNotPositiveIsNamed() {
         withFetcher().withPropertyValues("ageris.application=myapp", "ageris.feature-flags.files=/featureflags.json", "ageris.refresh-interval=0")
                 .run(context -> assertFailure(context.getStartupFailure(), "ageris.refresh-interval must be longer than zero"));

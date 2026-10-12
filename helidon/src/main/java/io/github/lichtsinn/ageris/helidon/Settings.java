@@ -98,6 +98,7 @@ record Settings(String application,
         if (refreshInterval.isZero() || refreshInterval.isNegative()) {
             throw new IllegalStateException("ageris.refresh-interval must be longer than zero, but was " + refreshInterval);
         }
+        refuseTimeoutThatCannotBeRight();
         refuseBlank(FEATURE_FLAG_FILES, featureFlagFiles);
         refuseBlank(CONFIG_FILES, configFiles);
         refuseBlank(JSON_CONFIG_FILES, jsonConfigFiles);
@@ -126,6 +127,17 @@ record Settings(String application,
             throw new IllegalStateException("ageris." + key + " must be true or false, but was " + written);
         }
         return Boolean.parseBoolean(written);
+    }
+
+    private void refuseTimeoutThatCannotBeRight() {
+        if (firstLoadTimeout.isNegative()) {
+            throw new IllegalStateException("ageris.first-load-timeout must not be negative, but was " + firstLoadTimeout);
+        }
+        if (firstLoadTimeout.isZero() && failOnFirstLoad) {
+            /* Loading takes some time, so a start that does not wait and must not go on without a load can only fail. */
+            throw new IllegalStateException("ageris.first-load-timeout must be longer than zero while ageris.fail-on-first-load-failure"
+                    + " is true; zero means not to wait, which only fits a start that goes on without a load");
+        }
     }
 
     private static void refuseBlank(String setting, List<String> files) {

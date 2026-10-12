@@ -613,7 +613,7 @@ Ageris is set up when the application starts the service registry, as with `Serv
 | `ageris.configs.files` | Files of the config manager, for configs and policies | |
 | `ageris.json-configs.files` | Files of the JSON config manager | |
 | `ageris.refresh-interval` | Time between two refreshes, written as `PT10S` | 10 seconds |
-| `ageris.first-load-timeout` | How long the start waits for the first attempt to load the files, written as `PT30S` | 30 seconds |
+| `ageris.first-load-timeout` | How long the start waits for the first attempt to load the files, written as `PT30S`. Zero means not to wait, and is only allowed with `fail-on-first-load-failure: false` | 30 seconds |
 | `ageris.fail-on-first-load-failure` | Whether the start fails when the first attempt fails or takes too long | `true` |
 
 * A manager only exists if its files are set. `ageris.featureFlagManager()` and its two siblings fail with a message that names the setting otherwise; the service registry simply does not offer that manager.
@@ -709,7 +709,7 @@ The loader is started with the application and stopped with it. A manager is loa
 | `ageris.configs.files` | Files of the config manager, for configs and policies | |
 | `ageris.json-configs.files` | Files of the JSON config manager | |
 | `ageris.refresh-interval` | Time between two refreshes. A number without a unit is in seconds. | `10s` |
-| `ageris.first-load-timeout` | How long the start waits for the first attempt to load the files | `30s` |
+| `ageris.first-load-timeout` | How long the start waits for the first attempt to load the files. Zero means not to wait, and is only allowed with `fail-on-first-load-failure=false` | `30s` |
 | `ageris.fail-on-first-load-failure` | Whether the application fails to start when the first attempt fails or takes too long | `true` |
 
 * A manager only exists if its files are set. Without any files set, the starter creates nothing, so adding the dependency alone changes no application.
