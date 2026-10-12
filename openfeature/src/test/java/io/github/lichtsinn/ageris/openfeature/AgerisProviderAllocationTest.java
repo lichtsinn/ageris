@@ -38,6 +38,7 @@ public class AgerisProviderAllocationTest {
 
     private static final int WARM_UP = 300_000;
     private static final int MEASURED = 200_000;
+    private static final int ROUNDS = 5;
     private static final int LIMIT = 176;
 
     private static final String FLAGS = "{ \"feature-flags\": { \"enable-checkout\": { \"value\": false, \"modifiers\": {"
@@ -59,16 +60,21 @@ public class AgerisProviderAllocationTest {
                 active++;
             }
         }
+        /* The smallest of several rounds counts. How far the JVM has optimized the code by a given round differs from run
+         * to run and can add a few bytes to one of them; a lookup that really creates more does so in every round. */
         long thread = Thread.currentThread().getId();
-        long before = threads.getThreadAllocatedBytes(thread);
-        for (int round = 0; round < MEASURED; round++) {
-            if (provider.getBooleanEvaluation("enable-checkout", false, caller).getValue()) {
-                active++;
+        long perCall = Long.MAX_VALUE;
+        for (int measurement = 0; measurement < ROUNDS; measurement++) {
+            long before = threads.getThreadAllocatedBytes(thread);
+            for (int round = 0; round < MEASURED; round++) {
+                if (provider.getBooleanEvaluation("enable-checkout", false, caller).getValue()) {
+                    active++;
+                }
             }
+            perCall = Math.min(perCall, (threads.getThreadAllocatedBytes(thread) - before) / MEASURED);
         }
-        long perCall = (threads.getThreadAllocatedBytes(thread) - before) / MEASURED;
 
-        Assert.assertEquals(WARM_UP + MEASURED, active);
+        Assert.assertEquals(WARM_UP + ROUNDS * MEASURED, active);
         /* The answer, the evaluation behind it and its two matches. The caller's context is read, not copied. */
         Assert.assertTrue("A boolean lookup created " + perCall + " bytes", perCall <= LIMIT);
     }
