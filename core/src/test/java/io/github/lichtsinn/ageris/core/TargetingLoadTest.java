@@ -132,6 +132,13 @@ public class TargetingLoadTest {
     }
 
     @Test
+    public void testCommentIsAllowedInModifiersAsEverywhereElse() throws IOException {
+        Assert.assertEquals(1, load("{ \"feature-flags\": { \"enable-checkout\": { \"comment\": \"entry\", \"value\": false,"
+                + " \"modifiers\": { \"comment\": \"by user\", \"type\": \"user\", \"contexts\": {"
+                + " \"joe\": { \"comment\": \"context\", \"value\": true } } } } } }"));
+    }
+
+    @Test
     public void testNullCountsAsLeftOut() throws IOException {
         Assert.assertEquals(1, load(flag("\"contexts\": null, \"rules\": [ { \"in\": [\"anna\"], \"value\": true } ]")));
         Assert.assertEquals(1, load(flag("\"contexts\": { \"joe\": { \"value\": true } }, \"rules\": null")));

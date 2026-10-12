@@ -154,6 +154,8 @@ Runtime configurations - or short configs - share the same recursive structure b
 }
 ```
 
+An entry, a named context, a rule and `modifiers` may each hold a `"comment"` with a text for the people who read the file. Ageris ignores it. A comment in `modifiers` needs Ageris 0.7.0 or later; an older version cannot load an entry that has one.
+
 #### Targeting
 
 A modifier picks a nested entry by the exact value of its context type. It can also hold `rules` for the values that have no entry of their own:

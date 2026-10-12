@@ -18,6 +18,7 @@
 package io.github.lichtsinn.ageris.core.structure;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.github.lichtsinn.ageris.core.ConfigurationContext;
@@ -52,6 +53,7 @@ import java.util.Map;
  *
  * @param <T> type of context
  */
+@JsonIgnoreProperties({"comment"})
 public final class Modifiers<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(Modifiers.class);
