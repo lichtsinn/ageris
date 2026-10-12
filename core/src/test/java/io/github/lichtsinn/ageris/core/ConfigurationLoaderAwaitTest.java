@@ -118,6 +118,53 @@ public class ConfigurationLoaderAwaitTest {
     }
 
     @Test
+    public void testFailedFirstRefreshEndsTheWaitForTheFirstAttempt() {
+        content.set("not json");
+        ageris.addFeatureFlagManager("myapp").registerFile("/all.json").build();
+        ConfigurationLoader loader = ageris.createAndStartLoader(Duration.ofSeconds(10));
+
+        capturedRefreshes(1).get(0).run();
+
+        Assert.assertTrue(loader.awaitFirstAttempt(SHORT));
+        Assert.assertFalse(loader.awaitFirstLoad(Duration.ZERO));
+    }
+
+    @Test
+    public void testFirstAttemptEndsOnceEveryManagerHasLoadedOrFailed() {
+        ageris.addFeatureFlagManager("myapp").registerFile("/all.json").build();
+        ageris.addConfigManager("myapp").registerFile("/all.json").build();
+        ConfigurationLoader loader = ageris.createAndStartLoader(Duration.ofSeconds(10));
+        List<Runnable> refreshes = capturedRefreshes(2);
+
+        refreshes.get(0).run();
+        Assert.assertFalse(loader.awaitFirstAttempt(SHORT));
+
+        refreshes.get(1).run();
+        Assert.assertTrue(loader.awaitFirstAttempt(SHORT));
+    }
+
+    @Test
+    public void testFirstAttemptTimesOutWhenTheLoaderWasNeverStarted() {
+        ageris.addFeatureFlagManager("myapp").registerFile("/all.json").build();
+        ConfigurationLoader loader = ageris.createLoader(Duration.ofSeconds(10));
+
+        Assert.assertFalse(loader.awaitFirstAttempt(SHORT));
+    }
+
+    @Test
+    public void testInterruptedWaitForTheFirstAttemptReturnsFalseAndKeepsTheInterruptFlag() {
+        ageris.addFeatureFlagManager("myapp").registerFile("/all.json").build();
+        ConfigurationLoader loader = ageris.createAndStartLoader(Duration.ofSeconds(10));
+
+        Thread.currentThread().interrupt();
+        boolean attempted = loader.awaitFirstAttempt(Duration.ofSeconds(30));
+
+        /* Thread.interrupted() also clears the flag, so that it does not leak into other tests. */
+        Assert.assertTrue(Thread.interrupted());
+        Assert.assertFalse(attempted);
+    }
+
+    @Test
     public void testManagerWithoutFilesDoesNotBlockTheWait() {
         Ageris empty = new Ageris((fileNames, application) -> Collections.emptyMap(), executorService, new ObjectMapper(), sha256());
         FeatureFlagManager featureFlagManager = empty.addFeatureFlagManager("myapp").build();

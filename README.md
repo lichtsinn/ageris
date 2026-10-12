@@ -825,6 +825,8 @@ if (!loader.awaitFirstLoad(Duration.ofSeconds(10))) {
 
 The wait ends once every manager has loaded and its listeners have been called for that load. An application that gives up must call `loader.shutdown()` first: the loader's threads otherwise keep the JVM running.
 
+A first attempt that fails does not end this wait, since a later refresh may still succeed. An application that should not sit out the whole time because of a mistake in a file waits with `loader.awaitFirstAttempt(timeout)` instead. It returns as soon as every manager has loaded or has failed once, and the status of each manager then says which.
+
 Each manager reports its status:
 
 ```Java

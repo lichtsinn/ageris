@@ -118,6 +118,33 @@ public final class ConfigurationLoader {
         }
     }
 
+    /**
+     * Waits until every configuration manager of this loader has had its first attempt to load: it has loaded, or the
+     * attempt has failed. Does not start the loader.
+     * <p>
+     * A first attempt that fails is an answer too. An application that must not start without its configuration can
+     * wait with this method and then ask each manager for its status, and so learns of a mistake in a file at once,
+     * where {@link #awaitFirstLoad(Duration)} would sit out its whole timeout.
+     *
+     * @param timeout maximum time to wait, for all managers together
+     * @return true if every manager has loaded or failed once, false if the timeout passed first or the waiting thread
+     *     was interrupted
+     */
+    public boolean awaitFirstAttempt(Duration timeout) {
+        long deadline = System.nanoTime() + nanosOf(timeout);
+        try {
+            for (ConfigurationReader configurationReader : configurationReaders) {
+                if (!configurationReader.awaitFirstAttempt(deadline - System.nanoTime(), TimeUnit.NANOSECONDS)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
     private static long nanosOf(Duration timeout) {
         try {
             return timeout.toNanos();

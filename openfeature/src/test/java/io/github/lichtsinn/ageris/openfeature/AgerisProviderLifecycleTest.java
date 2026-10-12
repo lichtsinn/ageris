@@ -94,6 +94,23 @@ public class AgerisProviderLifecycleTest {
         Assert.assertEquals("blue", client.getStringValue("color", "default"));
     }
 
+    /* The provider waits up to an hour here. The limit on the test is what fails it if a failed first attempt is sat
+     * out; with the fix the test takes no time. */
+    @Test(timeout = 20_000)
+    public void testFailedFirstAttemptFailsInitializationAtOnceAndNotAfterTheWholeWait() {
+        flagContent.set(BAD_FLAGS);
+        setUpAgeris(true);
+        AgerisProvider patient = AgerisProvider.builder(flags, configs).loader(loader).firstLoadTimeout(Duration.ofHours(1)).build();
+        providers.add(patient);
+        try {
+            api.setProviderAndWait("bad-at-once", patient);
+            Assert.fail("Expected initialization to fail");
+        } catch (OpenFeatureError expected) {
+            Assert.assertTrue(expected.getMessage(), expected.getMessage().contains("Cannot read one: "));
+        }
+        Assert.assertEquals(ProviderState.ERROR, api.getClient("bad-at-once").getProviderState());
+    }
+
     @Test
     public void testFailedFirstLoadFailsInitializationWithTheReason() {
         flagContent.set(BAD_FLAGS);

@@ -72,6 +72,7 @@ public class ConfigurationReader<T> {
 
     /** Released by the first refresh that succeeds. */
     private final CountDownLatch firstLoad = new CountDownLatch(1);
+    private final CountDownLatch firstAttempt = new CountDownLatch(1);
 
     /**
      * Creates configuration reader. A reader created here does not tell its manager about failed refreshes, so the
@@ -146,7 +147,22 @@ public class ConfigurationReader<T> {
                 store.failed(exception);
             }
             throw exception;
+        } finally {
+            /* After the status was set, so that whoever waited finds the reason of a failure there. */
+            firstAttempt.countDown();
         }
+    }
+
+    /**
+     * Waits until the first refresh has succeeded or failed.
+     *
+     * @param timeout maximum time to wait
+     * @param unit unit of the timeout
+     * @return true if a refresh has ended either way, false if the timeout passed first
+     * @throws InterruptedException if the waiting thread is interrupted
+     */
+    boolean awaitFirstAttempt(long timeout, TimeUnit unit) throws InterruptedException {
+        return firstAttempt.await(timeout, unit);
     }
 
     /**

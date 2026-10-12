@@ -225,9 +225,11 @@ public final class AgerisProvider extends EventProvider {
         return ProviderEvaluation.<T>builder().value(defaultValue).reason(Reason.ERROR.toString()).errorCode(code).errorMessage(message).build();
     }
 
+    /* Waits for the first attempt and not for the first load: an attempt that failed is an answer, and waiting on
+     * would only sit out the timeout. */
     private boolean startAndAwait() {
         loader.start();
-        return loader.awaitFirstLoad(timeout);
+        return loader.awaitFirstAttempt(timeout) && isLoaded(flags.getStatus()) && isLoaded(configs.getStatus());
     }
 
     private String whyNotLoaded() {
@@ -319,7 +321,8 @@ public final class AgerisProvider extends EventProvider {
         }
 
         /**
-         * @param timeout how long initialization waits for the first load; 30 seconds unless set
+         * @param timeout how long initialization waits for the first attempt to load; 30 seconds unless set. An
+         *     attempt that fails ends the wait at once
          * @return this builder
          */
         public Builder firstLoadTimeout(Duration timeout) {

@@ -17,23 +17,16 @@ package io.github.lichtsinn.ageris.helidon;
 
 import io.github.lichtsinn.ageris.core.Ageris;
 import io.github.lichtsinn.ageris.core.ConfigManager;
-import io.github.lichtsinn.ageris.core.ConfigurationListener;
 import io.github.lichtsinn.ageris.core.ConfigurationLoader;
 import io.github.lichtsinn.ageris.core.ConfigurationStatus;
-import io.github.lichtsinn.ageris.core.ConfigurationUpdate;
 import io.github.lichtsinn.ageris.core.FeatureFlagManager;
 import io.github.lichtsinn.ageris.core.JsonConfigManager;
 
 import java.nio.file.NoSuchFileException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 /**
  * The managers an application asked for and their loader: built from the settings, started, watched for the first
@@ -117,35 +110,8 @@ final class Managers {
      * @return false if the wait ran out before every manager had its first attempt
      */
     boolean startAndAwaitFirstAttempt(Duration timeout) {
-        final CountDownLatch attempts = new CountDownLatch(statuses().size());
-        final List<Runnable> removals = new ArrayList<>();
-        if (featureFlags != null) {
-            removals.add(watch(attempts, featureFlags::addListener, featureFlags::removeListener));
-        }
-        if (configs != null) {
-            removals.add(watch(attempts, configs::addListener, configs::removeListener));
-        }
-        if (jsonConfigs != null) {
-            removals.add(watch(attempts, jsonConfigs::addListener, jsonConfigs::removeListener));
-        }
         loader.start();
-        try {
-            return attempts.await(timeout.toNanos(), TimeUnit.NANOSECONDS);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            return false;
-        } finally {
-            removals.forEach(Runnable::run);
-        }
-    }
-
-    /**
-     * @return what takes the listener off the manager again
-     */
-    private static Runnable watch(CountDownLatch attempts, Consumer<ConfigurationListener> add, Consumer<ConfigurationListener> remove) {
-        final ConfigurationListener listener = new FirstAttempt(attempts);
-        add.accept(listener);
-        return () -> remove.accept(listener);
+        return loader.awaitFirstAttempt(timeout);
     }
 
     boolean isLoaded() {
@@ -192,30 +158,5 @@ final class Managers {
         final Ageris.JsonConfigManagerBuilder builder = ageris.addJsonConfigManager(application);
         files.forEach(builder::registerFile);
         return builder.build();
-    }
-
-    /**
-     * Counts the first thing that happens to a manager, which is that it loads or that its first attempt fails.
-     */
-    private static final class FirstAttempt implements ConfigurationListener {
-
-        private final CountDownLatch attempts;
-        private final AtomicBoolean counted = new AtomicBoolean();
-
-        private FirstAttempt(CountDownLatch attempts) {
-            this.attempts = attempts;
-        }
-
-        @Override
-        public void onUpdate(ConfigurationUpdate update) {
-            // The change of status that comes with the first update is what counts.
-        }
-
-        @Override
-        public void onStatusChange(ConfigurationStatus status) {
-            if (counted.compareAndSet(false, true)) {
-                attempts.countDown();
-            }
-        }
     }
 }
