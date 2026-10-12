@@ -26,7 +26,6 @@ import io.github.lichtsinn.ageris.core.structure.Context;
 import io.github.lichtsinn.ageris.core.utils.ClassFinder;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -112,13 +111,10 @@ public class ConfigurationMapper<T> {
     }
 
     /**
-     * @return name of a configuration to the problem, for the configurations with a rule that holds the same key twice
+     * @return name of a configuration to the problem, for the configurations that hold a key or a name twice or a
+     *     percentage with too many decimals
      */
     private Map<String, String> writtenProblems(String content) throws IOException {
-        if (!content.contains("rules")) {
-            /* A file without rules is not read a second time. */
-            return Collections.emptyMap();
-        }
         try (JsonParser parser = objectMapper.getFactory().createParser(content)) {
             return WrittenRules.find(parser, root);
         }

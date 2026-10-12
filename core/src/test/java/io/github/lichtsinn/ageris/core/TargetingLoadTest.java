@@ -99,14 +99,49 @@ public class TargetingLoadTest {
     }
 
     @Test
-    public void testSameKeyTwiceOutsideARuleLoadsAsBefore() throws IOException {
-        /* As in 0.2.0, where the last one counts; refusing it now would refuse files that load today. */
-        Assert.assertEquals(1, load("{ \"feature-flags\": { \"enable-checkout\": { \"value\": false, \"value\": true,"
-                + " \"modifiers\": { \"type\": \"user\", \"type\": \"plan\", \"contexts\": { } } } } }"));
-        /* Keys inside the value of a rule belong to the application, not to the rule. */
+    public void testSameKeyTwiceInAnEntryOrInModifiersIsRefused() {
+        assertRefusedFile("{ \"feature-flags\": { \"enable-checkout\": { \"value\": false, \"value\": true } } }",
+                "Key \"value\" appears twice in an entry");
+        assertRefusedFile("{ \"feature-flags\": { \"enable-checkout\": { \"value\": false, \"modifiers\": { \"type\": \"user\","
+                + " \"type\": \"plan\", \"contexts\": { } } } } }", "Key \"type\" appears twice in modifiers");
+        assertRefusedFile("{ \"feature-flags\": { \"enable-checkout\": { \"value\": false, \"modifiers\": { \"type\": \"user\","
+                + " \"contexts\": { \"joe\": { \"value\": true, \"value\": false } } } } } }", "Key \"value\" appears twice in an entry");
+        assertRefused("\"rules\": [ { \"percent\": 5, \"value\": true } ], \"rules\": [ ]", "Key \"rules\" appears twice in modifiers");
+    }
+
+    @Test
+    public void testSameNameTwiceIsRefused() {
+        assertRefusedFile("{ \"feature-flags\": { \"enable-checkout\": { \"value\": false }, \"enable-checkout\": { \"value\": true } } }",
+                "Name \"enable-checkout\" appears twice");
+        assertRefusedFile("{ \"feature-flags\": { \"enable-checkout\": { \"value\": false, \"modifiers\": { \"type\": \"user\","
+                + " \"contexts\": { \"joe\": { \"value\": true }, \"joe\": { \"value\": false } } } } } }",
+                "Name \"joe\" appears twice in contexts");
+    }
+
+    @Test
+    public void testSameRootFieldTwiceIsRefused() {
+        try {
+            load("{ \"feature-flags\": { \"one\": { \"value\": true } }, \"feature-flags\": { \"two\": { \"value\": true } } }");
+            Assert.fail("Expected the file to be refused.");
+        } catch (IOException exception) {
+            Assert.assertEquals("Root field feature-flags appears twice", exception.getMessage());
+        }
+    }
+
+    @Test
+    public void testSameKeyTwiceInsideAValueBelongsToTheApplication() throws IOException {
         Assert.assertEquals(1, new JsonConfigMapper("configs", false, new ObjectMapper(), new JsonConfigMetrics()).readValue(
-                "{ \"configs\": { \"limits\": { \"value\": { }, \"modifiers\": { \"type\": \"user\", \"rules\": ["
+                "{ \"configs\": { \"limits\": { \"value\": { \"max\": 1, \"max\": 2 }, \"modifiers\": { \"type\": \"user\", \"rules\": ["
                 + " { \"in\": [\"anna\"], \"value\": { \"max\": 1, \"max\": 2, \"rules\": [ { \"max\": 1, \"max\": 2 } ] } } ] } } } }").size());
+    }
+
+    @Test
+    public void testSameNameTwiceSkipsOnlyThatEntryInSkipMode() throws IOException {
+        String json = "{ \"feature-flags\": { \"good\": { \"value\": true }, \"bad\": { \"value\": false }, \"bad\": { \"value\": true } } }";
+
+        Map<String, Configuration<Boolean>> loaded = new FeatureFlagMapper("feature-flags", true, new ObjectMapper(), new FeatureFlagMetrics()).readValue(json);
+
+        Assert.assertEquals(Collections.singleton("good"), loaded.keySet());
     }
 
     @Test
@@ -165,9 +200,13 @@ public class TargetingLoadTest {
     }
 
     private static void assertRefused(String restOfModifiers, String expectedInMessage) {
+        assertRefusedFile(flag(restOfModifiers), expectedInMessage);
+    }
+
+    private static void assertRefusedFile(String json, String expectedInMessage) {
         try {
-            load(flag(restOfModifiers));
-            Assert.fail("Expected the file to be refused: " + restOfModifiers);
+            load(json);
+            Assert.fail("Expected the file to be refused: " + json);
         } catch (IOException exception) {
             Assert.assertTrue(exception.getMessage(), exception.getMessage().startsWith("Cannot read enable-checkout: "));
             Assert.assertFalse("One line: " + exception.getMessage(), exception.getMessage().contains("\n"));

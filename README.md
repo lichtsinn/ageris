@@ -154,6 +154,8 @@ Runtime configurations - or short configs - share the same recursive structure b
 }
 ```
 
+A name or a key may appear only once: an entry's name in its section, a context's name in `contexts`, and each key in an entry, in `modifiers` and in a rule. Ageris refuses an entry that breaks this, and a file that holds a section twice. What an entry's `value` holds belongs to the application and is not checked. Before 0.7.0 only a rule was checked, and elsewhere the last one counted.
+
 An entry, a named context, a rule and `modifiers` may each hold a `"comment"` with a text for the people who read the file. Ageris ignores it. A comment in `modifiers` needs Ageris 0.7.0 or later; an older version cannot load an entry that has one.
 
 #### Targeting

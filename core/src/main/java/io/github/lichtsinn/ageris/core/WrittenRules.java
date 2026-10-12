@@ -26,7 +26,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Finds what is wrong with a rule as it is written in a file, where a JSON mapper no longer shows it.
+ * Finds what is wrong with an entry as it is written in a file, where a JSON mapper no longer shows it: a key or a
+ * name that appears twice, of which a mapper keeps the last, and a percentage with too many decimals.
  *
  * A mapper keeps the last of two equal keys without a word, so a rule with "percent": 0 and "percent": 100 would apply to
  * everyone. Outside of rules the last one keeps counting, as it always has. And a mapper usually reads a number as a double,
@@ -52,9 +53,14 @@ final class WrittenRules {
      */
     static Map<String, String> find(JsonParser parser, String root) throws IOException {
         final Map<String, String> found = new HashMap<>();
+        boolean seen = false;
         if (parser.nextToken() == JsonToken.START_OBJECT) {
             while (parser.nextToken() == JsonToken.FIELD_NAME) {
                 final boolean isRoot = root.equals(parser.currentName());
+                if (isRoot && seen) {
+                    throw new IOException("Root field " + root + " appears twice");
+                }
+                seen = seen || isRoot;
                 if (parser.nextToken() == JsonToken.START_OBJECT && isRoot) {
                     configurations(parser, found);
                 } else {
@@ -66,10 +72,11 @@ final class WrittenRules {
     }
 
     private static void configurations(JsonParser parser, Map<String, String> found) throws IOException {
+        final Set<String> names = new HashSet<>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             final String name = parser.currentName();
             parser.nextToken();
-            final String problem = context(parser);
+            final String problem = names.add(name) ? context(parser) : twice("Name", name, null, parser);
             if (problem != null) {
                 found.put(name, problem);
             }
@@ -80,8 +87,9 @@ final class WrittenRules {
     private static String context(JsonParser parser) throws IOException {
         String problem = null;
         if (parser.currentToken() == JsonToken.START_OBJECT) {
+            final Set<String> keys = new HashSet<>();
             while (parser.nextToken() == JsonToken.FIELD_NAME) {
-                problem = first(problem, member(parser, null));
+                problem = first(problem, member(parser, keys, false));
             }
         } else {
             parser.skipChildren();
@@ -94,7 +102,7 @@ final class WrittenRules {
         if (parser.currentToken() == JsonToken.START_OBJECT) {
             final Set<String> keys = new HashSet<>();
             while (parser.nextToken() == JsonToken.FIELD_NAME) {
-                problem = first(problem, member(parser, keys));
+                problem = first(problem, member(parser, keys, true));
             }
         } else {
             parser.skipChildren();
@@ -103,14 +111,14 @@ final class WrittenRules {
     }
 
     /** Reads one key and its value; only modifiers are looked into, since everything else belongs to the application. */
-    private static String member(JsonParser parser, Set<String> keys) throws IOException {
+    private static String member(JsonParser parser, Set<String> keys, boolean inRule) throws IOException {
         final String key = parser.currentName();
         String problem = null;
-        if (keys != null && !keys.add(key)) {
-            problem = "Key \"" + key + "\" appears twice in a rule";
+        if (!keys.add(key)) {
+            problem = "Key \"" + key + "\" appears twice in " + (inRule ? "a rule" : "an entry");
         }
         final JsonToken token = parser.nextToken();
-        if (keys != null && PERCENT.equals(key) && token.isNumeric() && hasTooManyDecimals(parser.getText())) {
+        if (inRule && PERCENT.equals(key) && token.isNumeric() && hasTooManyDecimals(parser.getText())) {
             problem = first(problem, "\"percent\" may have at most two decimals in a rule, but was " + parser.getText());
         }
         if (MODIFIERS.equals(key)) {
@@ -133,8 +141,12 @@ final class WrittenRules {
     private static String modifiers(JsonParser parser) throws IOException {
         String problem = null;
         if (parser.currentToken() == JsonToken.START_OBJECT) {
+            final Set<String> keys = new HashSet<>();
             while (parser.nextToken() == JsonToken.FIELD_NAME) {
                 final String key = parser.currentName();
+                if (!keys.add(key)) {
+                    problem = first(problem, "Key \"" + key + "\" appears twice in modifiers");
+                }
                 final JsonToken token = parser.nextToken();
                 if (CONTEXTS.equals(key) && token == JsonToken.START_OBJECT) {
                     problem = first(problem, namedEntries(parser));
@@ -152,11 +164,19 @@ final class WrittenRules {
 
     private static String namedEntries(JsonParser parser) throws IOException {
         String problem = null;
+        final Set<String> names = new HashSet<>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            final String name = parser.currentName();
             parser.nextToken();
-            problem = first(problem, context(parser));
+            problem = first(problem, names.add(name) ? context(parser) : twice("Name", name, "contexts", parser));
         }
         return problem;
+    }
+
+    /** Skips what a name holds for the second time, and says so. */
+    private static String twice(String what, String name, String where, JsonParser parser) throws IOException {
+        parser.skipChildren();
+        return what + " \"" + name + "\" appears twice" + (where == null ? "" : " in " + where);
     }
 
     private static String rules(JsonParser parser) throws IOException {
