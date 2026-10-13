@@ -27,7 +27,7 @@ This guide covers moving from Merci 0.1.2 to Ageris 0.2.0 or later. Configuratio
    <dependency>
        <groupId>io.github.lichtsinn</groupId>
        <artifactId>ageris-core</artifactId>
-       <version>0.6.0</version>
+       <version>0.7.0</version>
    </dependency>
    ```
 

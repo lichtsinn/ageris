@@ -64,19 +64,19 @@ Ageris releases can be downloaded from the Maven central repository. Adding Ager
 <dependency>
     <groupId>io.github.lichtsinn</groupId>
     <artifactId>ageris-core</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
 </dependency>
 ```
 
 With Gradle:
 
 ```groovy
-implementation 'io.github.lichtsinn:ageris-core:0.6.0'
+implementation 'io.github.lichtsinn:ageris-core:0.7.0'
 ```
 
 #### Releases
 
-The latest release is **0.6.0**. All modules are released together under one version, and every dependency snippet in this guide names that release.
+The latest release is **0.7.0**. All modules are released together under one version, and every dependency snippet in this guide names that release.
 
 | Module | Artifact | Published since | Needs |
 |---|---|---|---|
@@ -85,7 +85,7 @@ The latest release is **0.6.0**. All modules are released together under one ver
 | [Helidon](#using-ageris-with-helidon) | [`ageris-helidon`](https://central.sonatype.com/artifact/io.github.lichtsinn/ageris-helidon) | 0.6.0 | Java 27, Helidon 27 |
 | [Spring Boot](#using-ageris-with-spring-boot) | [`ageris-spring-boot-starter`](https://central.sonatype.com/artifact/io.github.lichtsinn/ageris-spring-boot-starter) | 0.5.0 | Java 17, Spring Boot 4.0 |
 
-This guide is the one of the `master` branch, which carries the next version as a snapshot. Snapshots are not published. What a release contains is in its [release notes](https://github.com/lichtsinn/ageris/releases), and the guide as it was at a release is at its tag, such as [v0.6.0](https://github.com/lichtsinn/ageris/blob/v0.6.0/README.md).
+This guide is the one of the `master` branch, which carries the next version as a snapshot. Snapshots are not published. What a release contains is in its [release notes](https://github.com/lichtsinn/ageris/releases), and the guide as it was at a release is at its tag, such as [v0.7.0](https://github.com/lichtsinn/ageris/blob/v0.7.0/README.md).
 
 ### Central Configuration Files
 
@@ -483,7 +483,7 @@ Things to know:
 <dependency>
     <groupId>io.github.lichtsinn</groupId>
     <artifactId>ageris-openfeature</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
 </dependency>
 ```
 
@@ -555,7 +555,7 @@ With the `ageris-helidon` module a Helidon SE application gets Ageris from Helid
 <dependency>
     <groupId>io.github.lichtsinn</groupId>
     <artifactId>ageris-helidon</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
 </dependency>
 ```
 
@@ -672,7 +672,7 @@ With the `ageris-spring-boot-starter` module a Spring Boot application gets Ager
 <dependency>
     <groupId>io.github.lichtsinn</groupId>
     <artifactId>ageris-spring-boot-starter</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
 </dependency>
 ```
 
