@@ -27,7 +27,7 @@ limitations under the License.
     <name>Ageris Example for Helidon SE</name>
 
     <properties>
-        <ageris.version>0.6.0</ageris.version>
+        <ageris.version>0.7.0</ageris.version>
         <helidon.version>27.0.0</helidon.version>
         <maven.compiler.release>27</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

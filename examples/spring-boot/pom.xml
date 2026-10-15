@@ -34,7 +34,7 @@ limitations under the License.
     <name>Ageris Example for Spring Boot</name>
 
     <properties>
-        <ageris.version>0.6.0</ageris.version>
+        <ageris.version>0.7.0</ageris.version>
         <java.version>17</java.version>
     </properties>
 
